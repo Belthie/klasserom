@@ -9,91 +9,157 @@
     }));
 
     window.App = () => {
-        const [students, setStudents] = React.useState(defaultStudents);
-        const [roomConfig, setRoomConfig] = React.useState({ rows: 5, cols: 6, grouping: 'Rows' });
-        const [layout, setLayout] = React.useState([]); // Array of student IDs or null
-        const [viewMode, setViewMode] = React.useState('editor'); // editor | projector
-        const [score, setScore] = React.useState(null); // { violations: [] }
+        // --- State Initialization (Persistence) ---
+        const [classrooms, setClassrooms] = React.useState(() => {
+            try {
+                const saved = localStorage.getItem('klasserom_data');
+                if (saved) return JSON.parse(saved);
+            } catch (e) {
+                console.error("Failed to load saved data", e);
+            }
+            const firstId = window.Utils.generateId();
+            return {
+                [firstId]: {
+                    id: firstId,
+                    name: '10A',
+                    students: defaultStudents,
+                    roomConfig: { rows: 5, cols: 6, grouping: 'None' },
+                    layout: [],
+                    score: null,
+                    history: []
+                }
+            };
+        });
 
-        // Initialize Layout
+        const [activeClassId, setActiveClassId] = React.useState(() => {
+            return Object.keys(classrooms)[0];
+        });
+
+        const [editingId, setEditingId] = React.useState(null);
+        const [viewMode, setViewMode] = React.useState('editor'); // editor | projector
+
+        // --- Persistence Effect ---
+        React.useEffect(() => {
+            localStorage.setItem('klasserom_data', JSON.stringify(classrooms));
+        }, [classrooms]);
+
+        // --- Derived State (Active Class) ---
+        const activeClass = classrooms[activeClassId];
+        const students = activeClass.students;
+        const roomConfig = activeClass.roomConfig;
+        const layout = activeClass.layout;
+        const score = activeClass.score;
+
+        // --- Helpers for State Updates ---
+        const updateActiveClass = (updates) => {
+            setClassrooms(prev => ({
+                ...prev,
+                [activeClassId]: { ...prev[activeClassId], ...updates }
+            }));
+        };
+
+        // Initialize Layout (Legacy Effect logic adapted)
         React.useEffect(() => {
             const size = roomConfig.rows * roomConfig.cols;
-            setLayout(prev => {
+            if (layout.length !== size) {
                 const newLayout = new Array(size).fill(null);
-                // Preserve previous positions if possible?
-                // For now, reset or naive copy.
-                // Simpler: Just resize and keep indices.
-                for (let i = 0; i < Math.min(prev.length, size); i++) {
-                    newLayout[i] = prev[i];
+                for (let i = 0; i < Math.min(layout.length, size); i++) {
+                    newLayout[i] = layout[i];
                 }
-                // If shrinking, assigned students fall back to unassigned implicitly (calc below)
-                return newLayout;
-            });
-        }, [roomConfig.rows, roomConfig.cols]);
+                updateActiveClass({ layout: newLayout });
+            }
+        }, [roomConfig.rows, roomConfig.cols]); // Only trigger if dims change
 
         // Helpers
         const getStudent = (id) => students.find(s => s.id === id);
-
-        // Computed
         const assignedIds = new Set(layout.filter(id => id !== null));
         const unassigned = students.filter(s => !assignedIds.has(s.id));
 
-        // Actions
-        const handleImport = (names) => {
-            const newStudents = names.map(name => ({
-                id: window.Utils.generateId(),
-                name,
-                constraints: [],
-                enemies: [],
-                buddies: []
+        // --- Actions ---
+
+        // Multi-Class Actions
+        const handleAddClass = () => {
+            const newId = window.Utils.generateId();
+            setClassrooms(prev => ({
+                ...prev,
+                [newId]: {
+                    id: newId,
+                    name: `New Class`, // User can rename later
+                    students: [],
+                    roomConfig: { rows: 5, cols: 6, grouping: 'None' },
+                    layout: [],
+                    score: null,
+                    history: []
+                }
             }));
-            setStudents(prev => [...prev, ...newStudents]);
+            setActiveClassId(newId);
+        };
+
+        const handleDeleteClass = (idToDelete) => {
+            if (Object.keys(classrooms).length <= 1) return; // Prevent deleting last
+            const newClassrooms = { ...classrooms };
+            delete newClassrooms[idToDelete];
+            setClassrooms(newClassrooms);
+            if (activeClassId === idToDelete) {
+                setActiveClassId(Object.keys(newClassrooms)[0]);
+            }
+        };
+
+        const handleImport = (items) => {
+            const newStudents = items.map(item => {
+                const isString = typeof item === 'string';
+                return {
+                    id: window.Utils.generateId(),
+                    name: isString ? item : item.name,
+                    constraints: [],
+                    enemies: [],
+                    buddies: [],
+                    gender: isString ? 'O' : (item.gender || 'O'),
+                    level: isString ? 2 : (item.level || 2)
+                };
+            });
+            updateActiveClass({ students: [...students, ...newStudents] });
         };
 
         const handleUpdateStudent = (id, updates) => {
-            setStudents(prev => prev.map(s => s.id === id ? { ...s, ...updates } : s));
+            const newStudents = students.map(s => s.id === id ? { ...s, ...updates } : s);
+            updateActiveClass({ students: newStudents });
         };
 
         const handleGenerate = () => {
-            // Run Algorithm
-            // We need to pass full student objects for logic
-            const roster = [...students];
-            const newLayoutObjects = window.SeatingAlgorithm.generate(roster, roomConfig);
-            // Algorithm returns objects. Convert to IDs.
-            const newLayoutIds = newLayoutObjects.map(s => s ? s.id : null);
-            setLayout(newLayoutIds);
+            // 1. Archive current layout to history (if valid)
+            let newHistory = [...activeClass.history];
+            if (layout.some(id => id !== null)) {
+                newHistory.unshift({ date: Date.now(), layout: [...layout] });
+                if (newHistory.length > 10) newHistory.pop(); // Keep last 10
+            }
 
-            // Check Score
-            const evalResult = window.SeatingAlgorithm.evaluate(newLayoutObjects, roomConfig);
-            setScore(evalResult);
+            const roster = [...students];
+            // 2. Generate new, passing history for avoidance
+            const newLayoutObjects = window.SeatingAlgorithm.generate(roster, { ...roomConfig, history: newHistory });
+            const newLayoutIds = newLayoutObjects.map(s => s ? s.id : null);
+
+            const evalResult = window.SeatingAlgorithm.evaluate(newLayoutObjects, { ...roomConfig, history: newHistory });
+
+            updateActiveClass({
+                layout: newLayoutIds,
+                score: evalResult,
+                history: newHistory
+            });
         };
 
         const handleSwap = (idx1, idx2) => {
-            setLayout(prev => {
-                const next = [...prev];
-                [next[idx1], next[idx2]] = [next[idx2], next[idx1]];
-                return next;
-            });
-            // Clear score as it might be stale/invalid check requires re-run
-            // or we re-run verify immediately?
-            // Let's re-run verify in effect or just clear.
-            setScore(null);
+            const next = [...layout];
+            [next[idx1], next[idx2]] = [next[idx2], next[idx1]];
+            updateActiveClass({ layout: next, score: null }); // Invalidate score
         };
 
         const handleAssign = (studentId, index) => {
-            setLayout(prev => {
-                const next = [...prev];
-                // Check if studentId is already somewhere else?
-                const oldIndex = next.indexOf(studentId);
-                if (oldIndex !== -1) next[oldIndex] = null; // Remove from old
-
-                // If target occupied, move occupant to unassigned (or swap if coming from sidebar? Unassigned -> Seat usually means overwrite or swap. Let's Swap if source was sidebar? No, sidebar has no index.
-                // If target occupied, the occupant goes to unassigned.
-                // next[index] = studentId.
-                next[index] = studentId;
-                return next;
-            });
-            setScore(null);
+            const next = [...layout];
+            const oldIndex = next.indexOf(studentId);
+            if (oldIndex !== -1) next[oldIndex] = null; // Remove from old
+            next[index] = studentId;
+            updateActiveClass({ layout: next, score: null });
         };
 
         const generatePDF = async () => {
@@ -104,7 +170,7 @@
             const width = pdf.internal.pageSize.getWidth();
             const height = (canvas.height * width) / canvas.width;
             pdf.addImage(imgData, 'PNG', 0, 0, width, height);
-            pdf.save('seating-chart.pdf');
+            pdf.save(`${activeClass.name || 'seating-chart'}.pdf`);
         };
 
         return (
@@ -116,8 +182,9 @@
                         unassigned={unassigned}
                         onImport={handleImport}
                         onUpdateStudent={handleUpdateStudent}
+                        onEdit={(id) => setEditingId(id)}
                         roomConfig={roomConfig}
-                        onUpdateConfig={(k, v) => setRoomConfig(p => ({ ...p, [k]: v }))}
+                        onUpdateConfig={(k, v) => updateActiveClass({ roomConfig: { ...roomConfig, [k]: v } })}
                         onGenerate={handleGenerate}
                     />
                 </div>
@@ -127,18 +194,68 @@
                     {/* Toolbar */}
                     <header className="h-16 bg-white border-b border-slate-200 shadow-sm flex items-center justify-between px-6 shrink-0 z-20 print:hidden">
                         <div className="flex items-center gap-4">
-                            <h2 className="text-xl font-bold bg-gradient-to-r from-brand-600 to-indigo-600 bg-clip-text text-transparent">
-                                Class 10A
-                            </h2>
+                            {/* Class Switcher */}
+                            <div className="relative group">
+                                <button className="flex items-center gap-2 text-xl font-bold bg-gradient-to-r from-brand-600 to-indigo-600 bg-clip-text text-transparent hover:opacity-80">
+                                    {activeClass.name} <window.Icon name="chevron-down" size={16} className="text-slate-400" />
+                                </button>
+                                <div className="absolute top-full left-0 mt-2 w-56 bg-white rounded-lg shadow-xl border border-slate-100 p-2 z-50 hidden group-hover:block">
+                                    <div className="mb-2 pb-2 border-b border-slate-100">
+                                        <input
+                                            type="text"
+                                            value={activeClass.name}
+                                            onChange={(e) => updateActiveClass({ name: e.target.value })}
+                                            className="w-full px-2 py-1 text-sm border border-slate-200 rounded focus:border-brand-500 outline-none font-bold"
+                                            placeholder="Class Name"
+                                        />
+                                    </div>
+                                    <ul className="space-y-1 max-h-48 overflow-y-auto">
+                                        {Object.values(classrooms).map(c => (
+                                            <li key={c.id}>
+                                                <button
+                                                    onClick={() => setActiveClassId(c.id)}
+                                                    className={`w-full text-left px-2 py-1.5 rounded text-sm flex justify-between items-center ${activeClassId === c.id ? 'bg-brand-50 text-brand-700 font-bold' : 'hover:bg-slate-50 text-slate-600'}`}
+                                                >
+                                                    {c.name}
+                                                    {Object.keys(classrooms).length > 1 && (
+                                                        <span onClick={(e) => { e.stopPropagation(); handleDeleteClass(c.id); }} className="text-slate-300 hover:text-red-500 px-1">×</span>
+                                                    )}
+                                                </button>
+                                            </li>
+                                        ))}
+                                    </ul>
+                                    <button onClick={handleAddClass} className="w-full mt-2 text-xs font-bold text-center py-2 bg-slate-50 hover:bg-slate-100 text-brand-600 rounded border border-dashed border-brand-200">
+                                        + New Class
+                                    </button>
+                                </div>
+                            </div>
+
                             {score && score.violations.length === 0 && (
                                 <span className="flex items-center gap-1 text-xs font-bold text-green-600 bg-green-50 px-2 py-1 rounded-full border border-green-100">
                                     <window.Icon name="check-circle" size={14} /> Rules Met
                                 </span>
                             )}
                             {score && score.violations.length > 0 && (
-                                <span className="flex items-center gap-1 text-xs font-bold text-red-600 bg-red-50 px-2 py-1 rounded-full border border-red-100">
-                                    <window.Icon name="alert-circle" size={14} /> {score.violations.length} Violation(s)
-                                </span>
+                                <div className="relative group">
+                                    <span className="flex items-center gap-1 text-xs font-bold text-red-600 bg-red-50 px-2 py-1 rounded-full border border-red-100 cursor-help">
+                                        <window.Icon name="alert-circle" size={14} /> {score.violations.length} Violation(s)
+                                    </span>
+                                    {/* Tooltip Dropdown */}
+                                    <div className="absolute top-full right-0 mt-2 w-64 bg-white rounded-lg shadow-xl border border-red-100 p-3 z-50 hidden group-hover:block">
+                                        <h4 className="text-xs font-bold text-slate-500 uppercase mb-2 border-b pb-1">Issues Found</h4>
+                                        <ul className="space-y-1">
+                                            {score.violations.map((v, i) => (
+                                                <li key={i} className="text-xs text-red-600 flex items-start gap-1.5 leading-tight">
+                                                    <window.Icon name="x-circle" size={12} className="shrink-0 mt-0.5" />
+                                                    <span>
+                                                        {v.type === 'separation' && `Separation: ${v.student.name} near ${v.with?.name}`}
+                                                        {/* Add other types if needed */}
+                                                    </span>
+                                                </li>
+                                            ))}
+                                        </ul>
+                                    </div>
+                                </div>
                             )}
                         </div>
                         <div className="flex items-center gap-3">
@@ -174,12 +291,195 @@
                                 students={students}
                                 onSwap={handleSwap}
                                 onAssign={handleAssign}
-                                selection={score ? score.violations.map(v => layout.indexOf(v.student.id)) : []} // Map violation objects back to indices?
-                            // Actually violation has student object.
+                                onEdit={(id) => setEditingId(id)}
+                                selection={score ? score.violations.map(v => layout.indexOf(v.student.id)) : []}
+                                violationData={score ? score.violations.reduce((acc, v) => ({
+                                    ...acc,
+                                    [v.student.id]: v.type === 'separation' ? `Too close to ${v.with?.name}` : 'Rule Violation'
+                                }), {}) : {}}
                             />
                         </div>
                     </main>
                 </div>
+
+                {/* Global Edit Modal */}
+                {editingId && (
+                    <div className="fixed inset-0 z-[100] bg-slate-900/40 backdrop-blur-sm flex items-center justify-center p-4" onClick={() => setEditingId(null)}>
+                        <div className="bg-white rounded-xl shadow-2xl w-full max-w-sm overflow-hidden" onClick={e => e.stopPropagation()}>
+                            {(() => {
+                                const s = students.find(x => x.id === editingId);
+                                if (!s) return null;
+                                return (
+                                    <div>
+                                        <div className="p-4 border-b bg-slate-50 flex items-center justify-between">
+                                            <div className="flex items-center gap-3">
+                                                <div className="w-10 h-10 rounded-full bg-brand-100 text-brand-600 flex items-center justify-center font-bold text-lg">
+                                                    {s.name.substring(0, 2).toUpperCase()}
+                                                </div>
+                                                <div>
+                                                    <h3 className="font-bold text-lg text-slate-800 leading-tight">{s.name}</h3>
+                                                    <p className="text-xs text-slate-500">Edit Settings</p>
+                                                </div>
+                                            </div>
+                                            <button onClick={() => setEditingId(null)} className="p-2 hover:bg-slate-200 rounded-full text-slate-500"><window.Icon name="x" size={20} /></button>
+                                        </div>
+                                        <div className="p-5 space-y-6 max-h-[60vh] overflow-y-auto custom-scrollbar">
+                                            <div>
+                                                <label className="block text-xs font-bold text-slate-400 uppercase mb-2">Student Profile</label>
+                                                <div className="grid grid-cols-2 gap-3 mb-4">
+                                                    <div>
+                                                        <label className="block text-[10px] text-slate-500 font-medium mb-1">Gender</label>
+                                                        <select
+                                                            value={s.gender || 'O'}
+                                                            onChange={e => handleUpdateStudent(s.id, { gender: e.target.value })}
+                                                            className="w-full p-2 border border-slate-200 rounded text-sm bg-white outline-none focus:border-brand-500"
+                                                        >
+                                                            <option value="O">Other/Unspecified</option>
+                                                            <option value="M">Boy</option>
+                                                            <option value="F">Girl</option>
+                                                        </select>
+                                                    </div>
+                                                    <div>
+                                                        <label className="block text-[10px] text-slate-500 font-medium mb-1">Academic Level</label>
+                                                        <select
+                                                            value={s.level || 2}
+                                                            onChange={e => handleUpdateStudent(s.id, { level: parseInt(e.target.value) })}
+                                                            className="w-full p-2 border border-slate-200 rounded text-sm bg-white outline-none focus:border-brand-500"
+                                                        >
+                                                            <option value={1}>Needs Support (1)</option>
+                                                            <option value={2}>Average (2)</option>
+                                                            <option value={3}>High Achiever (3)</option>
+                                                        </select>
+                                                    </div>
+                                                </div>
+
+                                                <label className="block text-xs font-bold text-slate-400 uppercase mb-2">Zone Constraints</label>
+                                                <div className="space-y-2 bg-slate-50 p-3 rounded-lg border border-slate-100">
+                                                    {(() => {
+                                                        const currentSeatIdx = layout.indexOf(s.id);
+                                                        const isSeated = currentSeatIdx !== -1;
+                                                        return (
+                                                            <>
+                                                                <label className="flex items-center gap-3 text-sm cursor-pointer hover:text-brand-600">
+                                                                    <input type="checkbox" checked={s.constraints.includes('lock_front')}
+                                                                        onChange={e => {
+                                                                            let newC = s.constraints.filter(x => x !== 'lock_front' && x !== 'lock_back');
+                                                                            if (e.target.checked) newC.push('lock_front');
+                                                                            handleUpdateStudent(s.id, { constraints: newC });
+                                                                        }}
+                                                                        className="w-4 h-4 rounded text-brand-600 focus:ring-brand-500 border-slate-300" />
+                                                                    Lock to Front Row
+                                                                </label>
+                                                                <label className="flex items-center gap-3 text-sm cursor-pointer hover:text-brand-600">
+                                                                    <input type="checkbox" checked={s.constraints.includes('lock_back')}
+                                                                        onChange={e => {
+                                                                            let newC = s.constraints.filter(x => x !== 'lock_front' && x !== 'lock_back');
+                                                                            if (e.target.checked) newC.push('lock_back');
+                                                                            handleUpdateStudent(s.id, { constraints: newC });
+                                                                        }}
+                                                                        className="w-4 h-4 rounded text-brand-600 focus:ring-brand-500 border-slate-300" />
+                                                                    Lock to Back Row
+                                                                </label>
+
+                                                                {isSeated && (
+                                                                    <label className="flex items-center gap-3 text-sm cursor-pointer hover:text-brand-600 border-t border-slate-100 pt-2 mt-2">
+                                                                        <input type="checkbox" checked={s.lockedSeat === currentSeatIdx}
+                                                                            onChange={e => {
+                                                                                handleUpdateStudent(s.id, { lockedSeat: e.target.checked ? currentSeatIdx : null });
+                                                                            }}
+                                                                            className="w-4 h-4 rounded text-brand-600 focus:ring-brand-500 border-slate-300" />
+                                                                        Lock to Seat #{currentSeatIdx + 1}
+                                                                    </label>
+                                                                )}
+                                                            </>
+                                                        );
+                                                    })()}
+                                                </div>
+                                            </div>
+
+                                            <div>
+                                                <label className="block text-xs font-bold text-slate-400 uppercase mb-2">Social</label>
+
+                                                {/* Buddies */}
+                                                <div className="mb-4">
+                                                    <div className="text-xs text-slate-500 mb-2 font-medium">Sit close/next to (Buddies):</div>
+                                                    <div className="relative">
+                                                        <select
+                                                            className="w-full p-2.5 pl-3 pr-8 border border-slate-200 rounded-lg text-sm bg-white focus:ring-2 focus:ring-brand-500 outline-none appearance-none"
+                                                            onChange={e => {
+                                                                if (e.target.value && !s.buddies?.includes(e.target.value)) {
+                                                                    handleUpdateStudent(s.id, { buddies: [...(s.buddies || []), e.target.value] });
+                                                                }
+                                                                e.target.value = "";
+                                                            }}
+                                                        >
+                                                            <option value="">+ Add Buddy</option>
+                                                            {students.filter(x => x.id !== s.id && !(s.buddies || []).includes(x.id)).map(o => (
+                                                                <option key={o.id} value={o.id}>{o.name}</option>
+                                                            ))}
+                                                        </select>
+                                                        <div className="absolute right-3 top-3 pointer-events-none text-slate-400"><window.Icon name="chevron-down" size={16} /></div>
+                                                    </div>
+                                                    <div className="flex flex-wrap gap-2 mt-2">
+                                                        {(s.buddies || []).map(bId => {
+                                                            const b = students.find(x => x.id === bId);
+                                                            return (
+                                                                <span key={bId} className="flex items-center gap-1 bg-green-50 border border-green-100 text-green-700 pl-2 pr-1 py-1 rounded-full text-xs font-medium">
+                                                                    <window.Icon name="heart" size={12} className="text-green-400" />
+                                                                    {b?.name || 'Unknown'}
+                                                                    <button onClick={() => handleUpdateStudent(s.id, { buddies: s.buddies.filter(x => x !== bId) })} className="p-0.5 hover:bg-green-200 rounded-full ml-1"><window.Icon name="x" size={12} /></button>
+                                                                </span>
+                                                            );
+                                                        })}
+                                                    </div>
+                                                </div>
+
+                                                {/* Enemies */}
+                                                <div>
+                                                    <div className="text-xs text-slate-500 mb-2 font-medium">Avoid (Enemies):</div>
+                                                    <div className="relative">
+                                                        <select
+                                                            className="w-full p-2.5 pl-3 pr-8 border border-slate-200 rounded-lg text-sm bg-white focus:ring-2 focus:ring-brand-500 outline-none appearance-none"
+                                                            onChange={e => {
+                                                                if (e.target.value && !s.enemies?.includes(e.target.value)) {
+                                                                    handleUpdateStudent(s.id, { enemies: [...(s.enemies || []), e.target.value] });
+                                                                }
+                                                                e.target.value = "";
+                                                            }}
+                                                        >
+                                                            <option value="">+ Add Person to Avoid</option>
+                                                            {students.filter(x => x.id !== s.id && !(s.enemies || []).includes(x.id)).map(o => (
+                                                                <option key={o.id} value={o.id}>{o.name}</option>
+                                                            ))}
+                                                        </select>
+                                                        <div className="absolute right-3 top-3 pointer-events-none text-slate-400">
+                                                            <window.Icon name="chevron-down" size={16} />
+                                                        </div>
+                                                    </div>
+                                                    <div className="flex flex-wrap gap-2 mt-2">
+                                                        {(s.enemies || []).map(enId => {
+                                                            const en = students.find(x => x.id === enId);
+                                                            return (
+                                                                <span key={enId} className="flex items-center gap-1 bg-red-50 border border-red-100 text-red-700 pl-2 pr-1 py-1 rounded-full text-xs font-medium">
+                                                                    <window.Icon name="ban" size={12} className="text-red-400" />
+                                                                    {en?.name || 'Unknown'}
+                                                                    <button onClick={() => handleUpdateStudent(s.id, { enemies: s.enemies.filter(x => x !== enId) })} className="p-0.5 hover:bg-red-200 rounded-full ml-1"><window.Icon name="x" size={12} /></button>
+                                                                </span>
+                                                            );
+                                                        })}
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div className="p-4 border-t bg-slate-50 flex justify-end">
+                                            <button onClick={() => setEditingId(null)} className="px-4 py-2 bg-white border border-slate-200 text-slate-700 font-medium rounded-lg hover:bg-slate-100 shadow-sm">Done</button>
+                                        </div>
+                                    </div>
+                                );
+                            })()}
+                        </div>
+                    </div>
+                )}
             </div>
         );
     };

@@ -24,7 +24,7 @@
                 </div>
                 <button
                     onClick={(e) => { e.stopPropagation(); onEdit(student); }}
-                    className="p-1.5 text-slate-400 hover:text-brand-600 hover:bg-brand-50 rounded opacity-0 group-hover:opacity-100 transition-opacity"
+                    className="p-1.5 text-slate-400 hover:text-brand-600 hover:bg-brand-50 rounded transition-colors"
                 >
                     <window.Icon name="settings" size={16} />
                 </button>

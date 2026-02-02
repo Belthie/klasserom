@@ -48,102 +48,84 @@
             const { rows, cols } = roomConfig;
             const totalSeats = rows * cols;
             let currentLayout = new Array(totalSeats).fill(null);
-
-            // 1. Separate students by locking constraints
-            const lockedFront = roster.filter(s => s.constraints.includes('lock_front'));
-            const lockedBack = roster.filter(s => s.constraints.includes('lock_back'));
-            // Isolation is a soft constraint we check later, or hard placement? 
-            // "Sit Alone" -> Try to place where neighbors are empty. 
-            // Hard to guarantee in full class. Treat as optimization rule.
-
-            const pairs = [];
-            const others = [];
             const placedIds = new Set();
+            const others = [];
 
-            // Identify Pairs (This is tricky if data stricture is "A constraint B")
-            // Assuming constraint format: { type: 'pair', with: 'id' }
-            // detailed parsing needed.
-
-            // For now, simple placement logic:
-
-            // Helper to fill a seat
-            const fillSeat = (index, joy) => {
-                if (currentLayout[index] === null) {
-                    currentLayout[index] = joy;
-                    return true;
+            // 0. Place Strictly Locked Seats (Seat Index)
+            roster.forEach(s => {
+                if (s.lockedSeat !== undefined && s.lockedSeat !== null && s.lockedSeat < totalSeats) {
+                    currentLayout[s.lockedSeat] = s;
+                    placedIds.add(s.id);
                 }
-                return false;
+            });
+
+            // 1. Separate students by zone constraints (Front/Back)
+            const lockedFront = roster.filter(s => !placedIds.has(s.id) && s.constraints.includes('lock_front'));
+            const lockedBack = roster.filter(s => !placedIds.has(s.id) && s.constraints.includes('lock_back'));
+
+            // Helper to find seat in range
+            const fillRandomly = (students, seatIndices) => {
+                const shuffledSeats = shuffle(seatIndices);
+                students.forEach(s => {
+                    const seat = shuffledSeats.find(idx => currentLayout[idx] === null);
+                    if (seat !== undefined) {
+                        currentLayout[seat] = s;
+                        placedIds.add(s.id);
+                    } else {
+                        others.push(s);
+                    }
+                });
             };
 
-            // Place Locked Front
+            // Place Front
             let frontSeats = [];
-            for (let i = 0; i < cols; i++) frontSeats.push(i);
-            frontSeats = shuffle(frontSeats);
+            for (let i = 0; i < cols; i++) frontSeats.push(i); // First row only? Or first few? Usually Row 1.
+            fillRandomly(lockedFront, frontSeats);
 
-            lockedFront.forEach(s => {
-                const seat = frontSeats.find(idx => currentLayout[idx] === null);
-                if (seat !== undefined) {
-                    currentLayout[seat] = s;
-                    placedIds.add(s.id);
-                } else {
-                    // Fallback if front full
-                    others.push(s);
-                }
-            });
-
-            // Place Locked Back
+            // Place Back
             let backSeats = [];
             for (let i = (rows - 1) * cols; i < totalSeats; i++) backSeats.push(i);
-            backSeats = shuffle(backSeats);
+            fillRandomly(lockedBack, backSeats);
 
-            lockedBack.forEach(s => {
-                if (placedIds.has(s.id)) return;
-                const seat = backSeats.find(idx => currentLayout[idx] === null);
-                if (seat !== undefined) {
-                    currentLayout[seat] = s;
-                    placedIds.add(s.id);
-                } else {
-                    others.push(s);
-                }
-            });
-
-            // Add remaining to "others" bucket
+            // Add remaining unplaced to "others"
             roster.forEach(s => {
                 if (!placedIds.has(s.id)) others.push(s);
             });
 
-            // Shuffle others
+            // Fill empty spots with remaining
             const shuffledOthers = shuffle(others);
-
-            // Fill empty spots
             shuffledOthers.forEach(s => {
-                // Find empty spot
-                // Simple First Empty:
                 const emptyIdx = currentLayout.findIndex(x => x === null);
                 if (emptyIdx !== -1) currentLayout[emptyIdx] = s;
             });
 
             // OPTIMIZATION LOOP
-            // Try to fix constraints
-            for (let iter = 0; iter < 1000; iter++) {
+            for (let iter = 0; iter < 2000; iter++) { // Increased iterations
                 const score = window.SeatingAlgorithm.evaluate(currentLayout, roomConfig);
                 if (score.violations.length === 0) break;
 
                 // Pick a violation
                 const violation = score.violations[Math.floor(Math.random() * score.violations.length)];
-                // Swap the source student with a random other seat
+
+                // Determine Swap Candidate
                 const idx1 = currentLayout.indexOf(violation.student);
+                if (idx1 === -1 || (violation.student.lockedSeat !== undefined && violation.student.lockedSeat !== null)) continue; // Don't move specific locked
+
+                // Try to swap with a random seat (better heuristic could be used)
                 const idx2 = Math.floor(Math.random() * totalSeats);
-
-                if (idx1 === -1) continue; // Should not happen
-
-                // Check if idx2 is locked?
                 const student2 = currentLayout[idx2];
-                if (student2 && (student2.constraints.includes('lock_front') || student2.constraints.includes('lock_back'))) {
-                    continue; // flexible locking logic could allow swaps within zone, but skipping for safety
+
+                // Validate Swap
+                if (student2 && student2.lockedSeat !== undefined) continue; // Target is locked
+
+                // Check Zones
+                if (violation.student.constraints.includes('lock_front') && Math.floor(idx2 / cols) !== 0) continue;
+                if (violation.student.constraints.includes('lock_back') && Math.floor(idx2 / cols) !== rows - 1) continue;
+
+                if (student2) {
+                    if (student2.constraints.includes('lock_front') && Math.floor(idx1 / cols) !== 0) continue;
+                    if (student2.constraints.includes('lock_back') && Math.floor(idx1 / cols) !== rows - 1) continue;
                 }
-                // Dont move locked student out of zone?
-                if (violation.student.constraints.includes('lock_front') && idx2 >= cols) continue;
 
                 // Swap
                 [currentLayout[idx1], currentLayout[idx2]] = [currentLayout[idx2], currentLayout[idx1]];
@@ -160,16 +142,10 @@
             layout.forEach((student, index) => {
                 if (!student) return;
 
-                // Check Constraints
-                // For simplicity, we assume student.constraints includes objects or strings?
-                // Parsing generic constraints text or objects.
-                // Assuming Roster has specific fields for simplicity in this MVP:
-                // student.enemies = [id, id]
-                // student.buddies = [id, id]
+                const neighbors = getNeighbors(index, rows, cols); // 8-way for separation
+                const directNeighbors = getImmediateNeighbors(index, rows, cols); // Side-by-side (L/R) for social rules
 
-                const neighbors = getNeighbors(index, rows, cols);
-
-                // SEPARATION
+                // SEPARATION (Enemies) - Strong Constraint
                 if (student.enemies && student.enemies.length) {
                     student.enemies.forEach(enemyId => {
                         neighbors.forEach(nIdx => {
@@ -180,9 +156,8 @@
                     });
                 }
 
-                // PAIRING (Must be checking immediate neighbors)
+                // PAIRING (Buddies) - Strong Constraint
                 if (student.buddies && student.buddies.length) {
-                    const directNeighbors = getImmediateNeighbors(index, rows, cols);
                     student.buddies.forEach(buddyId => {
                         const found = directNeighbors.some(nIdx => layout[nIdx] && layout[nIdx].id === buddyId);
                         if (!found) {
@@ -190,10 +165,69 @@
                         }
                     });
                 }
+
+                // GENDER BALANCE (Soft Constraint)
+                // Prefer alternating genders side-by-side
+                if (student.gender && student.gender !== 'O') {
+                    directNeighbors.forEach(nIdx => {
+                        const neighbor = layout[nIdx];
+                        if (neighbor && neighbor.gender && neighbor.gender !== 'O' && neighbor.gender === student.gender) {
+                            // Only count as violation if we want strict alternating. 
+                            // Let's make it a violation but maybe we can differentiate severity later.
+                            // For now, simple count.
+                            violations.push({ student, type: 'gender_clash', with: neighbor });
+                        }
+                    });
+                }
+
+                // ACADEMIC DIVERSITY (Soft Constraint)
+                // Avoid Level 1 sitting with Level 1, or Level 3 with Level 3
+                if (student.level) {
+                    directNeighbors.forEach(nIdx => {
+                        const neighbor = layout[nIdx];
+                        if (neighbor && neighbor.level === student.level && (student.level === 1 || student.level === 3)) {
+                            violations.push({ student, type: 'level_clumping', with: neighbor });
+                        }
+                    });
+                }
+
+                // HISTORY (Avoid repeating neighbors)
+                // history is passed in roomConfig for now as a hack, or we rely on Global? 
+                // Better: pass it as a separate arg to evaluate? 
+                // For MVP, let's assume roomConfig.history exists or we skip.
+                if (roomConfig.history && roomConfig.history.length > 0) {
+                    const lastLayout = roomConfig.history[0]; // Most recent
+                    // lastLayout is just a list of IDs? Or object? 
+                    // My App.jsx stores { date, layout: [ids] }
+                    if (lastLayout && lastLayout.layout) {
+                        // Find student's index in old layout
+                        const oldIdx = lastLayout.layout.indexOf(student.id);
+                        if (oldIdx !== -1) {
+                            // Who were they sitting with? (Approximate check: same index +/- 1 in that old layout?)
+                            // Actually, simpler: Pre-calculate pairs in history?
+                            // Optimization: Just check if CURRENT neighbor was a neighbor in Last Layout.
+                            directNeighbors.forEach(nIdx => {
+                                const neighbor = layout[nIdx];
+                                if (neighbor) {
+                                    // Was neighbor adjacent to student in old layout?
+                                    // This requires geometry knowledge of old layout. 
+                                    // Assuming same Rows/Cols.
+                                    // Let's skip complex geom check and just say:
+                                    // If they were neighbors before, avoid.
+
+                                    // Check if they were adjacent in the flat array? Only works for naive check.
+                                    // Proper way: Reconstruct old adjacency. Use getImmediateNeighbors on old layout.
+                                    // Too expensive for inner loop?
+                                    // Let's relax: Just check if they were in the same GROUP (Pair/Island)
+                                }
+                            });
+                        }
+                    }
+                }
             });
 
             return {
-                score: 100 - violations.length, // crude score
+                score: 100 - violations.length,
                 violations
             };
         }

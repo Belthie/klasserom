@@ -5,17 +5,74 @@
         unassigned,
         onImport,
         onUpdateStudent,
+        onEdit, // New prop
         roomConfig,
         onUpdateConfig,
         onGenerate
     }) => {
         const [tab, setTab] = React.useState('roster'); // roster | settings
         const [importText, setImportText] = React.useState('');
-        const [editingId, setEditingId] = React.useState(null);
+        // Removed editingId state
 
         const handleImport = () => {
-            const names = importText.split('\n').filter(n => n.trim().length > 0);
-            if (names.length) onImport(names);
+            const lines = importText.split('\n').filter(n => n.trim().length > 0);
+            // Check if first line is a header (contains "name" and ",")
+            // If so, skip it. But simplest is to just assume raw data if it looks like a name.
+
+            const newNames = [];
+            lines.forEach(line => {
+                // Heuristic: Is it CSV?
+                if (line.includes(',')) {
+                    // Start parsing
+                    // Format: Name, Gender (M/F), Level (1-3)
+                    // If just Name, then it takes defaults
+                    const parts = line.split(',').map(s => s.trim());
+                    // We need to return OBJECTS or just names? The prop is onImport(names) - wait, App.jsx expects names (strings).
+                    // Refactor required: I should modify App.jsx handleImport to accept Objects OR Strings.
+                    // Or I can just pass objects here if I change the prop expectation?
+                    // Actually, let's keep it robust. If I pass objects, App.jsx needs to handle it.
+                    // Let's modify App.jsx handleImport first? No, I can't do parallel edits.
+                    // I will change this to return a list of Objects { name, gender, level } 
+                    // AND I must update App.jsx to handle that.
+
+                    // Actually, I can't change App.jsx logic here. 
+                    // Let's assume onImport can handle objects. 
+                    // Wait, I just edited App.jsx. Let's check handleImport there.
+                    // Current App.jsx handleImport:
+                    // const handleImport = (names) => { const newStudents = names.map(name => ({ ... })); }
+                    // It expects STRINGS.
+
+                    // I need to update App.jsx FIRST to handle objects. 
+                    // But I already closed App.jsx task.
+
+                    // Plan B: I will update Sidebar to parse, but I need to re-open App.jsx later?
+                    // No, I can fix App.jsx handleImport in the next "Refactor" step if needed.
+                    // Or, I can do a sneaky trick: `onImport` is just a function. 
+                    // If I pass [{name: 'Bob', ...}] instead of ['Bob'] and map over it...
+                    // App.jsx: names.map(name => ({ ... name: name ... })) -> { name: {name:'Bob'} } -> garbage.
+
+                    // I MUST Update App.jsx logic first or accept that I cannot release this feature yet.
+                    // Wait, I can pass a special structure? No.
+
+                    // Let's just create names for now, and handle CSV *parsing* in App.jsx? 
+                    // No, UI should parse.
+
+                    // Okay, I will modify Sidebar to emit structured data, and then I will immediately Fix App.jsx in next step.
+                    // This file Replace is for Sidebar.
+
+                    newNames.push({
+                        name: parts[0],
+                        gender: parts[1] ? (parts[1].toUpperCase().startsWith('B') || parts[1].toUpperCase().startsWith('M') || parts[1].toUpperCase().startsWith('G') ? parts[1].charAt(0).toUpperCase() : 'O') : 'O',
+                        // Map 'Boy' -> 'M', 'Girl' -> 'F', 'Gutt' -> 'M', 'Jente' -> 'F' ?
+                        // Let's support M/F/B/G/J/G
+                        level: parts[2] ? parseInt(parts[2]) : 2
+                    });
+                } else {
+                    newNames.push({ name: line, gender: 'O', level: 2 });
+                }
+            });
+
+            if (newNames.length) onImport(newNames);
             setImportText('');
         };
 
@@ -87,7 +144,7 @@
                                         >
                                             <window.StudentCard
                                                 student={s}
-                                                onEdit={() => setEditingId(s.id)}
+                                                onEdit={() => onEdit(s.id)}
                                             />
                                         </div>
                                     ))}
@@ -113,105 +170,23 @@
                                 </div>
                                 <div className="mt-2 text-xs text-slate-400 text-center">Total Seats: {roomConfig.rows * roomConfig.cols}</div>
                             </section>
+
+                            <section>
+                                <label className="block text-xs text-slate-500 font-bold mb-2 uppercase tracking-wider">Grouping Style</label>
+                                <select
+                                    className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-brand-500 outline-none"
+                                    value={roomConfig.grouping}
+                                    onChange={e => onUpdateConfig('grouping', e.target.value)}
+                                >
+                                    <option value="None">Standard Grid</option>
+                                    <option value="Pairs">Pairs (2)</option>
+                                    <option value="Groups of 4">Islands (Group of 4)</option>
+                                </select>
+                            </section>
                         </div>
                     )}
                 </div>
-
-                {/* Edit Modal (Portal-like) */}
-                {editingId && (
-                    <div className="fixed inset-0 z-[100] bg-slate-900/40 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-200" onClick={() => setEditingId(null)}>
-                        <div className="bg-white rounded-xl shadow-2xl w-full max-w-sm overflow-hidden scale-100" onClick={e => e.stopPropagation()}>
-                            {(() => {
-                                const s = students.find(x => x.id === editingId);
-                                if (!s) return null;
-                                return (
-                                    <div>
-                                        <div className="p-4 border-b bg-slate-50 flex items-center justify-between">
-                                            <div className="flex items-center gap-3">
-                                                <div className="w-10 h-10 rounded-full bg-brand-100 text-brand-600 flex items-center justify-center font-bold text-lg">
-                                                    {s.name.substring(0, 2).toUpperCase()}
-                                                </div>
-                                                <div>
-                                                    <h3 className="font-bold text-lg text-slate-800 leading-tight">{s.name}</h3>
-                                                    <p className="text-xs text-slate-500">Edit Settings</p>
-                                                </div>
-                                            </div>
-                                            <button onClick={() => setEditingId(null)} className="p-2 hover:bg-slate-200 rounded-full text-slate-500"><window.Icon name="x" size={20} /></button>
-                                        </div>
-                                        <div className="p-5 space-y-6">
-                                            <div>
-                                                <label className="block text-xs font-bold text-slate-400 uppercase mb-2">Zone Constraints</label>
-                                                <div className="space-y-2 bg-slate-50 p-3 rounded-lg border border-slate-100">
-                                                    <label className="flex items-center gap-3 text-sm cursor-pointer hover:text-brand-600">
-                                                        <input type="checkbox" checked={s.constraints.includes('lock_front')}
-                                                            onChange={e => {
-                                                                // Toggle mutex locks
-                                                                let newC = s.constraints.filter(x => x !== 'lock_front' && x !== 'lock_back');
-                                                                if (e.target.checked) newC.push('lock_front');
-                                                                onUpdateStudent(s.id, { constraints: newC });
-                                                            }}
-                                                            className="w-4 h-4 rounded text-brand-600 focus:ring-brand-500 border-slate-300" />
-                                                        Lock to Front Row
-                                                    </label>
-                                                    <label className="flex items-center gap-3 text-sm cursor-pointer hover:text-brand-600">
-                                                        <input type="checkbox" checked={s.constraints.includes('lock_back')}
-                                                            onChange={e => {
-                                                                let newC = s.constraints.filter(x => x !== 'lock_front' && x !== 'lock_back');
-                                                                if (e.target.checked) newC.push('lock_back');
-                                                                onUpdateStudent(s.id, { constraints: newC });
-                                                            }}
-                                                            className="w-4 h-4 rounded text-brand-600 focus:ring-brand-500 border-slate-300" />
-                                                        Lock to Back Row
-                                                    </label>
-                                                </div>
-                                            </div>
-
-                                            <div>
-                                                <label className="block text-xs font-bold text-slate-400 uppercase mb-2">Relationships</label>
-                                                <div className="text-xs text-slate-500 mb-2">Select students to avoid (Separation):</div>
-                                                <div className="relative">
-                                                    <select
-                                                        className="w-full p-2.5 pl-3 pr-8 border border-slate-200 rounded-lg text-sm bg-white focus:ring-2 focus:ring-brand-500 outline-none appearance-none"
-                                                        onChange={e => {
-                                                            if (e.target.value && !s.enemies?.includes(e.target.value)) {
-                                                                onUpdateStudent(s.id, { enemies: [...(s.enemies || []), e.target.value] });
-                                                            }
-                                                            e.target.value = "";
-                                                        }}
-                                                    >
-                                                        <option value="">+ Add Person to Switch With</option>
-                                                        {students.filter(x => x.id !== s.id && !(s.enemies || []).includes(x.id)).map(o => (
-                                                            <option key={o.id} value={o.id}>{o.name}</option>
-                                                        ))}
-                                                    </select>
-                                                    <div className="absolute right-3 top-3 pointer-events-none text-slate-400">
-                                                        <window.Icon name="chevron-down" size={16} />
-                                                    </div>
-                                                </div>
-                                                <div className="flex flex-wrap gap-2 mt-3">
-                                                    {(s.enemies || []).map(enId => {
-                                                        const en = students.find(x => x.id === enId);
-                                                        return (
-                                                            <span key={enId} className="flex items-center gap-1 bg-red-50 border border-red-100 text-red-700 pl-2 pr-1 py-1 rounded-full text-xs font-medium">
-                                                                <window.Icon name="ban" size={12} className="text-red-400" />
-                                                                {en?.name || 'Unknown'}
-                                                                <button onClick={() => onUpdateStudent(s.id, { enemies: s.enemies.filter(x => x !== enId) })} className="p-0.5 hover:bg-red-200 rounded-full ml-1"><window.Icon name="x" size={12} /></button>
-                                                            </span>
-                                                        );
-                                                    })}
-                                                    {(s.enemies || []).length === 0 && <span className="text-xs text-slate-400 italic">No separation rules set.</span>}
-                                                </div>
-                                            </div>
-                                        </div>
-                                        <div className="p-4 border-t bg-slate-50 flex justify-end">
-                                            <button onClick={() => setEditingId(null)} className="px-4 py-2 bg-white border border-slate-200 text-slate-700 font-medium rounded-lg hover:bg-slate-100 shadow-sm">Done</button>
-                                        </div>
-                                    </div>
-                                );
-                            })()}
-                        </div>
-                    </div>
-                )}
+                {/* Modal Removed from here */}
             </div>
         );
     };

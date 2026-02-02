@@ -1,7 +1,58 @@
 
 (function () {
-    window.GridMap = ({ layout, roomConfig, onSwap, onAssign, selection }) => {
-        const { rows, cols } = roomConfig;
+    window.GridMap = ({ layout, roomConfig, onSwap, onAssign, onEdit, selection }) => {
+        const { rows, cols, grouping } = roomConfig;
+
+        // Stronger Colors for Groups
+        const GROUP_COLORS = [
+            'bg-blue-100 border-blue-200', 'bg-green-100 border-green-200',
+            'bg-orange-100 border-orange-200', 'bg-purple-100 border-purple-200',
+            'bg-pink-100 border-pink-200', 'bg-teal-100 border-teal-200',
+            'bg-indigo-100 border-indigo-200', 'bg-cyan-100 border-cyan-200'
+        ];
+
+        const getGroupColor = (index) => {
+            if (grouping === 'None') return '';
+
+            const r = Math.floor(index / cols);
+            const c = index % cols;
+            let groupId = -1;
+
+            if (grouping === 'Pairs') {
+                groupId = (r * Math.ceil(cols / 2)) + Math.floor(c / 2);
+            } else if (grouping === 'Groups of 4') {
+                groupId = (Math.floor(r / 2) * Math.ceil(cols / 2)) + Math.floor(c / 2);
+            }
+
+            if (groupId === -1) return '';
+            return GROUP_COLORS[groupId % GROUP_COLORS.length];
+        };
+
+        const getSpacingClass = (index) => {
+            if (grouping === 'None') return '';
+
+            const r = Math.floor(index / cols);
+            const c = index % cols;
+            let classes = '';
+
+            // Horizontal Spacing (Gutter)
+            if (grouping === 'Pairs' || grouping === 'Groups of 4') {
+                // If it's the right side of a group (col index is odd)
+                if (c % 2 === 1 && c < cols - 1) {
+                    classes += ' mr-6 ';
+                }
+            }
+
+            // Vertical Spacing (Gutter)
+            if (grouping === 'Groups of 4') {
+                // If it's the bottom of a group (row index is odd)
+                if (r % 2 === 1 && r < rows - 1) {
+                    classes += ' mb-6 ';
+                }
+            }
+
+            return classes;
+        };
 
         const handleDragStart = (e, index, student) => {
             e.dataTransfer.setData('currIndex', index);
@@ -35,22 +86,28 @@
         return (
             <div
                 id="seating-grid"
-                className="grid gap-3 p-6 bg-white rounded-xl border border-slate-200 shadow-sm print:shadow-none print:border-none print:bg-transparent"
+                className="grid gap-2 p-6 bg-white rounded-xl border border-slate-200 shadow-sm print:shadow-none print:border-none print:bg-transparent"
                 style={{
                     gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))`
                 }}
             >
                 {layout.map((student, index) => {
-                    const isSelected = selection && selection.includes(index); // For broken rule highlighting
+                    const isSelected = selection && selection.includes(index);
+                    const groupColorStr = getGroupColor(index);
+                    const spacingClass = getSpacingClass(index);
+
+                    const finalClass = student
+                        ? (isSelected ? 'bg-red-100 border-red-400 z-10' : (groupColorStr ? groupColorStr.replace('bg-', 'bg-') + ' hover:border-brand-400' : 'bg-white border-slate-200 hover:border-brand-400'))
+                        : (groupColorStr || 'bg-slate-50 border-dashed border-slate-200');
 
                     return (
                         <div
                             key={index}
                             className={`
-                                relative min-h-[100px] rounded-lg border-2 flex flex-col items-center justify-center p-2 text-center transition-all cursor-move
-                                ${student
-                                    ? (isSelected ? 'bg-red-50 border-red-400 z-10' : 'bg-white border-slate-200 hover:border-brand-400 hover:shadow-md')
-                                    : 'bg-slate-50 border-dashed border-slate-200 hover:bg-slate-100'}
+                                relative min-h-[100px] rounded-lg border-2 flex flex-col items-center justify-center p-2 text-center transition-all cursor-move group
+                                ${finalClass}
+                                ${spacingClass}
+                                ${!student ? 'hover:bg-opacity-80' : 'shadow-sm'}
                             `}
                             draggable="true"
                             onDragStart={(e) => handleDragStart(e, index, student)}
@@ -59,20 +116,35 @@
                         >
                             {student ? (
                                 <>
-                                    <div className="w-8 h-8 rounded-full bg-brand-100 text-brand-700 flex items-center justify-center font-bold mb-2">
+                                    <div className="w-8 h-8 rounded-full bg-white/90 border border-slate-100 text-brand-700 flex items-center justify-center font-bold mb-2 shadow-sm pointer-events-none">
                                         {student.name.substring(0, 2).toUpperCase()}
                                     </div>
-                                    <div className="font-semibold text-slate-800 text-sm leading-tight line-clamp-2">
+                                    <div className="font-semibold text-slate-800 text-sm leading-tight line-clamp-2 pointer-events-none">
                                         {student.name}
                                     </div>
+
+                                    {/* Action Buttons (Visible on hover) */}
+                                    <div className="absolute top-1 right-1 opacity-0 group-hover:opacity-100 transition-opacity flex gap-1 z-20">
+                                        <button
+                                            className="p-1 bg-white/80 hover:bg-white text-slate-500 hover:text-brand-600 rounded shadow-sm"
+                                            onClick={(e) => { e.stopPropagation(); onEdit(student.id); }}
+                                            title="Settings"
+                                        >
+                                            <window.Icon name="settings" size={12} />
+                                        </button>
+                                    </div>
+
                                     {/* Constraints Indicators */}
-                                    <div className="absolute top-2 right-2 flex flex-col gap-1">
+                                    <div className="absolute bottom-1 left-2 flex gap-1 pointer-events-none">
                                         {student.constraints.includes('lock_front') && <div className="w-1.5 h-1.5 rounded-full bg-amber-500" title="Front Locked"></div>}
                                         {student.constraints.includes('lock_back') && <div className="w-1.5 h-1.5 rounded-full bg-purple-500" title="Back Locked"></div>}
+                                        {student.lockedSeat !== undefined && student.lockedSeat !== null && <div className="w-1.5 h-1.5 rounded-full bg-slate-900" title="Locked to Seat"></div>}
+                                        {student.buddies && student.buddies.length > 0 && <div className="w-1.5 h-1.5 rounded-full bg-green-500" title="Has Buddies"></div>}
+                                        {student.enemies && student.enemies.length > 0 && <div className="w-1.5 h-1.5 rounded-full bg-red-500" title="Separation Rule"></div>}
                                     </div>
                                 </>
                             ) : (
-                                <span className="text-xs font-bold text-slate-300 select-none">{index + 1}</span>
+                                <span className={`text-xs font-bold select-none ${groupColorStr ? 'text-slate-500/50' : 'text-slate-300'}`}>{index + 1}</span>
                             )}
                         </div>
                     );
