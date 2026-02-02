@@ -1,4 +1,4 @@
-name: Deploy to One.com
+name: Push to SFTP
 
 on:
   push:
@@ -6,17 +6,32 @@ on:
       - main
 
 jobs:
-  web-deploy:
-    name: Deploy
+  deploy:
     runs-on: ubuntu-latest
     steps:
-      - name: 🚚 Get latest code
+      - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: 📂 Sync files
-        uses: SamKirkland/FTP-Deploy-Action@v4.3.5
+      - name: Install sshpass
+        run: sudo apt-get update && sudo apt-get install -y sshpass
+
+      - name: Create remote directory
+        run: |
+          sshpass -p ${{ secrets.SFTP_PASSWORD }} sftp -o StrictHostKeyChecking=no -P 22 ${{ secrets.SFTP_USERNAME }}@${{ secrets.SFTP_HOST }} <<< $"mkdir klasserom" || true
+
+      - name: Prepare deployment directory
+        run: |
+          mkdir dist
+          rsync -av --progress ./ dist/ --exclude 'dist' --exclude '.git' --exclude '.github'
+
+      - name: Sync files to server
+        uses: wlixcc/SFTP-Deploy-Action@v1.2.4
         with:
-          server: ${{ secrets.FTP_SERVER }}
-          username: ${{ secrets.FTP_USERNAME }}
-          password: ${{ secrets.FTP_PASSWORD }}
-          server-dir: /klasserom/
+          server: ${{ secrets.SFTP_HOST }}
+          username: ${{ secrets.SFTP_USERNAME }}
+          password: ${{ secrets.SFTP_PASSWORD }}
+          port: 22
+          local_path: './dist/*'
+          remote_path: 'klasserom'
+          delete_remote_files: false
+
