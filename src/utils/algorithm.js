@@ -194,22 +194,22 @@
                     });
                 }
 
-                // GENDER BALANCE (Soft Constraint)
+                // GENDER BALANCE (Soft Constraint) - DISABLED BY DEFAULT
                 // Prefer alternating genders side-by-side
+                /*
                 if (student.gender && student.gender !== 'O') {
                     directNeighbors.forEach(nIdx => {
                         const neighbor = layout[nIdx];
                         if (neighbor && neighbor.gender && neighbor.gender !== 'O' && neighbor.gender === student.gender) {
-                            // Only count as violation if we want strict alternating. 
-                            // Let's make it a violation but maybe we can differentiate severity later.
-                            // For now, simple count.
                             violations.push({ student, type: 'gender_clash', with: neighbor });
                         }
                     });
                 }
+                */
 
-                // ACADEMIC DIVERSITY (Soft Constraint)
+                // ACADEMIC DIVERSITY (Soft Constraint) - DISABLED BY DEFAULT
                 // Avoid Level 1 sitting with Level 1, or Level 3 with Level 3
+                /*
                 if (student.level) {
                     directNeighbors.forEach(nIdx => {
                         const neighbor = layout[nIdx];
@@ -218,40 +218,10 @@
                         }
                     });
                 }
+                */
 
-                // HISTORY (Avoid repeating neighbors)
-                // history is passed in roomConfig for now as a hack, or we rely on Global? 
-                // Better: pass it as a separate arg to evaluate? 
-                // For MVP, let's assume roomConfig.history exists or we skip.
-                if (roomConfig.history && roomConfig.history.length > 0) {
-                    const lastLayout = roomConfig.history[0]; // Most recent
-                    // lastLayout is just a list of IDs? Or object? 
-                    // My App.jsx stores { date, layout: [ids] }
-                    if (lastLayout && lastLayout.layout) {
-                        // Find student's index in old layout
-                        const oldIdx = lastLayout.layout.indexOf(student.id);
-                        if (oldIdx !== -1) {
-                            // Who were they sitting with? (Approximate check: same index +/- 1 in that old layout?)
-                            // Actually, simpler: Pre-calculate pairs in history?
-                            // Optimization: Just check if CURRENT neighbor was a neighbor in Last Layout.
-                            directNeighbors.forEach(nIdx => {
-                                const neighbor = layout[nIdx];
-                                if (neighbor) {
-                                    // Was neighbor adjacent to student in old layout?
-                                    // This requires geometry knowledge of old layout. 
-                                    // Assuming same Rows/Cols.
-                                    // Let's skip complex geom check and just say:
-                                    // If they were neighbors before, avoid.
-
-                                    // Check if they were adjacent in the flat array? Only works for naive check.
-                                    // Proper way: Reconstruct old adjacency. Use getImmediateNeighbors on old layout.
-                                    // Too expensive for inner loop?
-                                    // Let's relax: Just check if they were in the same GROUP (Pair/Island)
-                                }
-                            });
-                        }
-                    }
-                }
+                // HISTORY - Placeholder for future implementation
+                // (Currently does not enforce logic to avoid complexity)
             });
 
             return {
