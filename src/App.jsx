@@ -24,6 +24,7 @@
                     name: '10A',
                     students: defaultStudents,
                     roomConfig: { rows: 5, cols: 6, grouping: 'None' },
+                    customGroups: [], // { ids: [], color: string }
                     layout: [],
                     score: null,
                     history: []
@@ -37,6 +38,8 @@
 
         const [editingId, setEditingId] = React.useState(null);
         const [viewMode, setViewMode] = React.useState('editor'); // editor | projector
+        const [isGroupingMode, setIsGroupingMode] = React.useState(false);
+        const [selectedSeats, setSelectedSeats] = React.useState([]);
 
         // --- Persistence Effect ---
         React.useEffect(() => {
@@ -162,6 +165,60 @@
             updateActiveClass({ layout: next, score: null });
         };
 
+        const handleDeleteStudent = (id) => {
+            const nextStudents = students.filter(s => s.id !== id);
+            const nextLayout = layout.map(sid => sid === id ? null : sid);
+            updateActiveClass({ students: nextStudents, layout: nextLayout });
+        };
+
+        const handleClearRoster = () => {
+            updateActiveClass({ students: [], layout: new Array(layout.length).fill(null), score: null });
+        };
+
+        const handleClearLayout = () => {
+            if (confirm('Clear current seating arrangement? (Students will move to roster)')) {
+                updateActiveClass({ layout: new Array(layout.length).fill(null), score: null });
+            }
+        };
+
+        // --- Manual Grouping Handlers ---
+        const handleToggleDetails = (idx) => {
+            // In grouping mode, toggle selection
+            if (selectedSeats.includes(idx)) {
+                setSelectedSeats(prev => prev.filter(i => i !== idx));
+            } else {
+                setSelectedSeats(prev => [...prev, idx]);
+            }
+        };
+
+        const handleCreateGroup = () => {
+            if (selectedSeats.length === 0) return;
+            // Pick a color based on existing count
+            const colors = [
+                'bg-blue-100 border-blue-200', 'bg-green-100 border-green-200',
+                'bg-orange-100 border-orange-200', 'bg-purple-100 border-purple-200',
+                'bg-pink-100 border-pink-200', 'bg-teal-100 border-teal-200'
+            ];
+            const color = colors[(activeClass.customGroups || []).length % colors.length];
+
+            const newGroup = {
+                id: window.Utils.generateId(),
+                color,
+                ids: [...selectedSeats]
+            };
+
+            updateActiveClass({
+                customGroups: [...(activeClass.customGroups || []), newGroup]
+            });
+            setSelectedSeats([]);
+        };
+
+        const handleClearGroups = () => {
+            if (confirm("Remove all manual groups?")) {
+                updateActiveClass({ customGroups: [] });
+            }
+        };
+
         const generatePDF = async () => {
             const element = document.getElementById('seating-draw-area');
             const canvas = await window.html2canvas(element, { scale: 2 });
@@ -182,6 +239,8 @@
                         unassigned={unassigned}
                         onImport={handleImport}
                         onUpdateStudent={handleUpdateStudent}
+                        onDeleteStudent={handleDeleteStudent}
+                        onClearRoster={handleClearRoster}
                         onEdit={(id) => setEditingId(id)}
                         roomConfig={roomConfig}
                         onUpdateConfig={(k, v) => updateActiveClass({ roomConfig: { ...roomConfig, [k]: v } })}
@@ -230,6 +289,14 @@
                                 </div>
                             </div>
 
+                            <button
+                                onClick={handleClearLayout}
+                                className="flex items-center gap-2 px-3 py-1.5 text-xs font-medium text-slate-600 bg-slate-100 hover:bg-red-50 hover:text-red-600 rounded-lg transition-colors border border-transparent hover:border-red-100"
+                                title="Remove all students from seating"
+                            >
+                                <window.Icon name="eraser" size={14} /> Clear Seats
+                            </button>
+
                             {score && score.violations.length === 0 && (
                                 <span className="flex items-center gap-1 text-xs font-bold text-green-600 bg-green-50 px-2 py-1 rounded-full border border-green-100">
                                     <window.Icon name="check-circle" size={14} /> Rules Met
@@ -257,6 +324,45 @@
                                     </div>
                                 </div>
                             )}
+                            <div className="h-6 w-px bg-slate-300 mx-2"></div>
+
+                            <div className="flex items-center gap-2">
+                                {!isGroupingMode ? (
+                                    <button
+                                        onClick={() => { setIsGroupingMode(true); updateActiveClass({ roomConfig: { ...roomConfig, grouping: 'None' } }); }}
+                                        className="px-3 py-1.5 text-xs font-bold text-indigo-600 bg-indigo-50 border border-indigo-100 hover:bg-indigo-100 rounded-lg transition-colors flex items-center gap-2"
+                                    >
+                                        <window.Icon name="layers" size={14} /> Group
+                                    </button>
+                                ) : (
+                                    <div className="flex items-center gap-2 animate-in fade-in slide-in-from-top-1 bg-indigo-50 px-2 py-1 rounded-lg border border-indigo-100">
+                                        <span className="text-xs font-bold text-indigo-700 mr-2">Select Seats: {selectedSeats.length}</span>
+                                        <button
+                                            onClick={handleCreateGroup}
+                                            disabled={selectedSeats.length === 0}
+                                            className="px-2 py-1 text-xs bg-indigo-600 text-white rounded shadow-sm hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                                        >
+                                            Create Group
+                                        </button>
+                                        <button
+                                            onClick={() => { setIsGroupingMode(false); setSelectedSeats([]); }}
+                                            className="px-2 py-1 text-xs text-slate-500 hover:text-slate-700"
+                                        >
+                                            Done
+                                        </button>
+                                        {(activeClass.customGroups || []).length > 0 && (
+                                            <button
+                                                onClick={handleClearGroups}
+                                                className="ml-2 px-1 text-xs text-red-400 hover:text-red-600"
+                                                title="Clear All Groups"
+                                            >
+                                                <window.Icon name="trash-2" size={14} />
+                                            </button>
+                                        )}
+                                    </div>
+                                )}
+                            </div>
+
                         </div>
                         <div className="flex items-center gap-3">
                             <div className="flex items-center bg-slate-100 rounded-lg p-1 mr-4">
@@ -292,11 +398,10 @@
                                 onSwap={handleSwap}
                                 onAssign={handleAssign}
                                 onEdit={(id) => setEditingId(id)}
-                                selection={score ? score.violations.map(v => layout.indexOf(v.student.id)) : []}
-                                violationData={score ? score.violations.reduce((acc, v) => ({
-                                    ...acc,
-                                    [v.student.id]: v.type === 'separation' ? `Too close to ${v.with?.name}` : 'Rule Violation'
-                                }), {}) : {}}
+                                selection={isGroupingMode ? selectedSeats : []}
+                                violationIndices={!isGroupingMode && score ? score.violations.map(v => layout.indexOf(v.student.id)) : []}
+                                onToggleSelection={isGroupingMode ? handleToggleDetails : null}
+                                customGroups={activeClass.customGroups || []}
                             />
                         </div>
                     </main>

@@ -1,6 +1,6 @@
 
 (function () {
-    window.GridMap = ({ layout, roomConfig, onSwap, onAssign, onEdit, selection }) => {
+    window.GridMap = ({ layout, roomConfig, onSwap, onAssign, onEdit, selection, violationIndices, onToggleSelection, customGroups = [] }) => {
         const { rows, cols, grouping } = roomConfig;
 
         // Stronger Colors for Groups
@@ -12,6 +12,10 @@
         ];
 
         const getGroupColor = (index) => {
+            // Check Custom Groups first (Priority over Auto-Grouping)
+            const customGroup = customGroups.find(g => g.ids.includes(index));
+            if (customGroup) return customGroup.color;
+
             if (grouping === 'None') return '';
 
             const r = Math.floor(index / cols);
@@ -55,6 +59,10 @@
         };
 
         const handleDragStart = (e, index, student) => {
+            if (onToggleSelection) {
+                e.preventDefault();
+                return;
+            }
             e.dataTransfer.setData('currIndex', index);
             e.dataTransfer.setData('type', 'seat');
             if (student) {
@@ -65,6 +73,8 @@
 
         const handleDrop = (e, targetIndex) => {
             e.preventDefault();
+            if (onToggleSelection) return;
+
             const type = e.dataTransfer.getData('type');
 
             if (type === 'sidebar_student') {
@@ -93,26 +103,49 @@
             >
                 {layout.map((student, index) => {
                     const isSelected = selection && selection.includes(index);
+                    const isViolation = violationIndices && violationIndices.includes(index);
                     const groupColorStr = getGroupColor(index);
                     const spacingClass = getSpacingClass(index);
 
-                    const finalClass = student
-                        ? (isSelected ? 'bg-red-100 border-red-400 z-10' : (groupColorStr ? groupColorStr.replace('bg-', 'bg-') + ' hover:border-brand-400' : 'bg-white border-slate-200 hover:border-brand-400'))
-                        : (groupColorStr || 'bg-slate-50 border-dashed border-slate-200');
+                    // Priority: Selected (Blue) > Violation (Red) > Group Color > Default
+                    let baseColor = 'bg-white';
+                    let borderColor = 'border-slate-200';
+
+                    if (isSelected) {
+                        baseColor = 'bg-brand-100';
+                        borderColor = 'border-brand-500 ring-2 ring-brand-300 ring-offset-1 z-20';
+                    } else if (isViolation) {
+                        baseColor = 'bg-red-100';
+                        borderColor = 'border-red-400 z-10';
+                    } else if (groupColorStr) {
+                        // Extract parts if coming from tailwind strings
+                        baseColor = groupColorStr.split(' ')[0] || 'bg-slate-50';
+                        borderColor = groupColorStr.split(' ')[1] || 'border-slate-200';
+                    } else {
+                        baseColor = student ? 'bg-white' : 'bg-slate-50';
+                        borderColor = student ? 'border-slate-200' : 'border-dashed border-slate-200';
+                    }
+
+                    const finalClass = `
+                        ${baseColor} ${borderColor}
+                        ${!onToggleSelection && !student ? 'hover:bg-opacity-80' : ''}
+                        ${!onToggleSelection && student ? 'hover:border-brand-400 shadow-sm' : ''}
+                        ${onToggleSelection ? 'cursor-pointer hover:bg-brand-50' : 'cursor-move'}
+                    `;
 
                     return (
                         <div
                             key={index}
                             className={`
-                                relative min-h-[100px] rounded-lg border-2 flex flex-col items-center justify-center p-2 text-center transition-all cursor-move group
+                                relative min-h-[100px] rounded-lg border-2 flex flex-col items-center justify-center p-2 text-center transition-all group
                                 ${finalClass}
                                 ${spacingClass}
-                                ${!student ? 'hover:bg-opacity-80' : 'shadow-sm'}
                             `}
-                            draggable="true"
+                            draggable={!onToggleSelection}
                             onDragStart={(e) => handleDragStart(e, index, student)}
                             onDrop={(e) => handleDrop(e, index)}
                             onDragOver={handleDragOver}
+                            onClick={() => onToggleSelection && onToggleSelection(index)}
                         >
                             {student ? (
                                 <>
@@ -123,16 +156,18 @@
                                         {student.name}
                                     </div>
 
-                                    {/* Action Buttons (Visible on hover) */}
-                                    <div className="absolute top-1 right-1 opacity-0 group-hover:opacity-100 transition-opacity flex gap-1 z-20">
-                                        <button
-                                            className="p-1 bg-white/80 hover:bg-white text-slate-500 hover:text-brand-600 rounded shadow-sm"
-                                            onClick={(e) => { e.stopPropagation(); onEdit(student.id); }}
-                                            title="Settings"
-                                        >
-                                            <window.Icon name="settings" size={12} />
-                                        </button>
-                                    </div>
+                                    {/* Action Buttons (Visible on hover when NOT in selection mode) */}
+                                    {!onToggleSelection && (
+                                        <div className="absolute top-1 right-1 opacity-0 group-hover:opacity-100 transition-opacity flex gap-1 z-20">
+                                            <button
+                                                className="p-1 bg-white/80 hover:bg-white text-slate-500 hover:text-brand-600 rounded shadow-sm"
+                                                onClick={(e) => { e.stopPropagation(); onEdit(student.id); }}
+                                                title="Settings"
+                                            >
+                                                <window.Icon name="settings" size={12} />
+                                            </button>
+                                        </div>
+                                    )}
 
                                     {/* Constraints Indicators */}
                                     <div className="absolute bottom-1 left-2 flex gap-1 pointer-events-none">

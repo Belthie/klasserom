@@ -5,7 +5,9 @@
         unassigned,
         onImport,
         onUpdateStudent,
-        onEdit, // New prop
+        onDeleteStudent, // New
+        onClearRoster,   // New
+        onEdit,
         roomConfig,
         onUpdateConfig,
         onGenerate
@@ -126,8 +128,16 @@
 
                             {/* Unassigned List */}
                             <div>
-                                <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2 flex justify-between">
+                                <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2 flex justify-between items-center">
                                     <span>Roster ({unassigned.length}/{students.length})</span>
+                                    {students.length > 0 && (
+                                        <button
+                                            onClick={() => { if (confirm('Delete ALL students? This cannot be undone.')) onClearRoster(); }}
+                                            className="text-[10px] text-red-500 hover:text-red-700 bg-red-50 px-2 py-0.5 rounded border border-red-100 transition-colors"
+                                        >
+                                            Clear All
+                                        </button>
+                                    )}
                                 </h3>
                                 <div className="space-y-2 min-h-[100px] pb-10"
                                     onDragOver={e => e.preventDefault()}
@@ -136,7 +146,7 @@
                                         <div
                                             key={s.id}
                                             draggable="true"
-                                            className="cursor-grab active:cursor-grabbing"
+                                            className="cursor-grab active:cursor-grabbing relative group"
                                             onDragStart={e => {
                                                 e.dataTransfer.setData('type', 'sidebar_student');
                                                 e.dataTransfer.setData('studentId', s.id);
@@ -146,6 +156,13 @@
                                                 student={s}
                                                 onEdit={() => onEdit(s.id)}
                                             />
+                                            <button
+                                                onClick={() => { if (confirm('Delete student?')) onDeleteStudent(s.id); }}
+                                                className="absolute top-2 right-2 p-1 bg-white text-slate-400 hover:text-red-500 rounded shadow-sm border border-slate-100 opacity-0 group-hover:opacity-100 transition-all z-10"
+                                                title="Delete Student"
+                                            >
+                                                <window.Icon name="trash-2" size={14} />
+                                            </button>
                                         </div>
                                     ))}
                                     {unassigned.length === 0 && students.length > 0 && <div className="text-center py-4 text-slate-400 text-xs italic bg-slate-50 rounded-lg border border-dashed">All students seated</div>}
