@@ -365,47 +365,49 @@
                                 <button className="flex items-center gap-2 text-xl font-bold bg-white border border-slate-200 shadow-sm px-3 py-1.5 rounded-lg text-slate-700 hover:bg-slate-50 hover:border-slate-300 transition-all">
                                     <span className="bg-gradient-to-r from-brand-600 to-indigo-600 bg-clip-text text-transparent">{activeClass.name}</span> <window.Icon name="chevron-down" size={16} className="text-slate-400" />
                                 </button>
-                                <div className="absolute top-full left-0 mt-2 w-56 bg-white rounded-lg shadow-xl border border-slate-100 p-2 z-50 hidden group-hover:block">
-                                    <div className="mb-2 pb-2 border-b border-slate-100">
-                                        <input
-                                            type="text"
-                                            value={activeClass.name}
-                                            onChange={(e) => updateActiveClass({ name: e.target.value })}
-                                            className="w-full px-2 py-1 text-sm border border-slate-200 rounded focus:border-brand-500 outline-none font-bold"
-                                            placeholder="Class Name"
-                                        />
-                                    </div>
-                                    <ul className="space-y-1 max-h-48 overflow-y-auto">
-                                        {Object.values(classrooms).map(c => (
-                                            <li key={c.id}>
-                                                <button
-                                                    onClick={() => setActiveClassId(c.id)}
-                                                    className={`w-full text-left px-2 py-1.5 rounded text-sm flex justify-between items-center ${activeClassId === c.id ? 'bg-brand-50 text-brand-700 font-bold' : 'hover:bg-slate-50 text-slate-600'}`}
-                                                >
-                                                    {c.name}
-                                                    {Object.keys(classrooms).length > 1 && (
-                                                        <span onClick={(e) => { e.stopPropagation(); handleDeleteClass(c.id); }} className="text-slate-300 hover:text-red-500 px-1">×</span>
-                                                    )}
-                                                </button>
-                                            </li>
-                                        ))}
-                                    </ul>
-                                    <div className="pt-2 mt-2 border-t border-slate-100 flex flex-col gap-1">
-                                        <button onClick={handleAddClass} className="w-full text-xs font-bold text-center py-2 bg-slate-50 hover:bg-slate-100 text-brand-600 rounded border border-dashed border-brand-200">
-                                            + New Class
-                                        </button>
-                                        <div className="grid grid-cols-2 gap-1 mt-1">
-                                            <button onClick={handleExportClass} className="text-xs py-1.5 bg-white border border-slate-200 hover:bg-slate-50 text-slate-600 rounded flex items-center justify-center gap-1" title="Save Class to File">
-                                                <window.Icon name="download" size={12} /> Save
-                                            </button>
-                                            <button onClick={handleImportClassTrigger} className="text-xs py-1.5 bg-white border border-slate-200 hover:bg-slate-50 text-slate-600 rounded flex items-center justify-center gap-1" title="Load Class from File">
-                                                <window.Icon name="upload" size={12} /> Load
-                                            </button>
-                                            <input type="file" id="import-file-input" className="hidden" accept=".json" onChange={handleImportClassFile} />
+                                <div className="absolute top-full left-0 pt-2 w-56 z-50 hidden group-hover:block">
+                                    <div className="bg-white rounded-lg shadow-xl border border-slate-100 p-2">
+                                        <div className="mb-2 pb-2 border-b border-slate-100">
+                                            <input
+                                                type="text"
+                                                value={activeClass.name}
+                                                onChange={(e) => updateActiveClass({ name: e.target.value })}
+                                                className="w-full px-2 py-1 text-sm border border-slate-200 rounded focus:border-brand-500 outline-none font-bold"
+                                                placeholder="Class Name"
+                                            />
                                         </div>
-                                        <button onClick={handleResetClass} className="w-full mt-1 text-xs py-1.5 text-red-500 hover:bg-red-50 rounded flex items-center justify-center gap-1 font-medium">
-                                            <window.Icon name="rotate-ccw" size={12} /> Reset Current Class
-                                        </button>
+                                        <ul className="space-y-1 max-h-48 overflow-y-auto">
+                                            {Object.values(classrooms).map(c => (
+                                                <li key={c.id}>
+                                                    <button
+                                                        onClick={() => setActiveClassId(c.id)}
+                                                        className={`w-full text-left px-2 py-1.5 rounded text-sm flex justify-between items-center ${activeClassId === c.id ? 'bg-brand-50 text-brand-700 font-bold' : 'hover:bg-slate-50 text-slate-600'}`}
+                                                    >
+                                                        {c.name}
+                                                        {Object.keys(classrooms).length > 1 && (
+                                                            <span onClick={(e) => { e.stopPropagation(); handleDeleteClass(c.id); }} className="text-slate-300 hover:text-red-500 px-1">×</span>
+                                                        )}
+                                                    </button>
+                                                </li>
+                                            ))}
+                                        </ul>
+                                        <div className="pt-2 mt-2 border-t border-slate-100 flex flex-col gap-1">
+                                            <button onClick={handleAddClass} className="w-full text-xs font-bold text-center py-2 bg-slate-50 hover:bg-slate-100 text-brand-600 rounded border border-dashed border-brand-200">
+                                                + New Class
+                                            </button>
+                                            <div className="grid grid-cols-2 gap-1 mt-1">
+                                                <button onClick={handleExportClass} className="text-xs py-1.5 bg-white border border-slate-200 hover:bg-slate-50 text-slate-600 rounded flex items-center justify-center gap-1" title="Save Class to File">
+                                                    <window.Icon name="download" size={12} /> Save
+                                                </button>
+                                                <button onClick={handleImportClassTrigger} className="text-xs py-1.5 bg-white border border-slate-200 hover:bg-slate-50 text-slate-600 rounded flex items-center justify-center gap-1" title="Load Class from File">
+                                                    <window.Icon name="upload" size={12} /> Load
+                                                </button>
+                                                <input type="file" id="import-file-input" className="hidden" accept=".json" onChange={handleImportClassFile} />
+                                            </div>
+                                            <button onClick={handleResetClass} className="w-full mt-1 text-xs py-1.5 text-red-500 hover:bg-red-50 rounded flex items-center justify-center gap-1 font-medium">
+                                                <window.Icon name="rotate-ccw" size={12} /> Reset Current Class
+                                            </button>
+                                        </div>
                                     </div>
                                 </div>
                             </div>
