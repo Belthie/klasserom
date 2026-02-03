@@ -32,26 +32,56 @@
             return GROUP_COLORS[groupId % GROUP_COLORS.length];
         };
 
-        const getSpacingClass = (index) => {
-            if (grouping === 'None') return '';
+        // Helper to determine the effective group ID for a seat
+        const getEffectiveGroupId = (index) => {
+            // 1. Custom Group (Priority)
+            const customGroup = customGroups.find(g => g.ids.includes(index));
+            if (customGroup) return `custom-${customGroup.id}`;
 
+            // 2. Auto Group
+            if (grouping === 'None') return null;
+
+            const r = Math.floor(index / cols);
+            const c = index % cols;
+            let autoId = -1;
+
+            if (grouping === 'Pairs') {
+                autoId = (r * Math.ceil(cols / 2)) + Math.floor(c / 2);
+            } else if (grouping === 'Groups of 4') {
+                autoId = (Math.floor(r / 2) * Math.ceil(cols / 2)) + Math.floor(c / 2);
+            }
+
+            if (autoId !== -1) return `auto-${autoId}`;
+            return null;
+        };
+
+        const getSpacingClass = (index) => {
             const r = Math.floor(index / cols);
             const c = index % cols;
             let classes = '';
 
-            // Horizontal Spacing (Gutter)
-            if (grouping === 'Pairs' || grouping === 'Groups of 4') {
-                // If it's the right side of a group (col index is odd)
-                if (c % 2 === 1 && c < cols - 1) {
-                    classes += ' mr-6 ';
+            const currentGroupId = getEffectiveGroupId(index);
+
+            // Horizontal Spacing
+            if (c < cols - 1) {
+                const rightGroupId = getEffectiveGroupId(index + 1);
+                // Add spacer if the right neighbor belongs to a different group (or one is grouped and other is not)
+                // Note: If both are null (no group), we don't add extra space.
+                if (currentGroupId !== rightGroupId) {
+                    // Exception: If both are null, don't add space (standard grid gap applies)
+                    if (currentGroupId !== null || rightGroupId !== null) {
+                        classes += ' mr-6 ';
+                    }
                 }
             }
 
-            // Vertical Spacing (Gutter)
-            if (grouping === 'Groups of 4') {
-                // If it's the bottom of a group (row index is odd)
-                if (r % 2 === 1 && r < rows - 1) {
-                    classes += ' mb-6 ';
+            // Vertical Spacing
+            if (r < rows - 1) {
+                const bottomGroupId = getEffectiveGroupId(index + cols);
+                if (currentGroupId !== bottomGroupId) {
+                    if (currentGroupId !== null || bottomGroupId !== null) {
+                        classes += ' mb-6 ';
+                    }
                 }
             }
 

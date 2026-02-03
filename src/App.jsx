@@ -207,8 +207,17 @@
                 ids: [...selectedSeats]
             };
 
+            // Remove selected seats from any existing manual groups (Override behavior)
+            const existingGroupsFn = (groups) => {
+                if (!groups) return [];
+                return groups.map(g => ({
+                    ...g,
+                    ids: g.ids.filter(id => !selectedSeats.includes(id))
+                })).filter(g => g.ids.length > 0); // Clean up empty groups
+            };
+
             updateActiveClass({
-                customGroups: [...(activeClass.customGroups || []), newGroup]
+                customGroups: [...existingGroupsFn(activeClass.customGroups), newGroup]
             });
             setSelectedSeats([]);
         };
@@ -353,10 +362,10 @@
                                         {(activeClass.customGroups || []).length > 0 && (
                                             <button
                                                 onClick={handleClearGroups}
-                                                className="ml-2 px-1 text-xs text-red-400 hover:text-red-600"
+                                                className="ml-2 px-2 py-1 text-xs text-red-600 bg-red-50 hover:bg-red-100 rounded border border-red-200 flex items-center gap-1"
                                                 title="Clear All Groups"
                                             >
-                                                <window.Icon name="trash-2" size={14} />
+                                                <window.Icon name="trash-2" size={12} /> Clear Groups
                                             </button>
                                         )}
                                     </div>
