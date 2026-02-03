@@ -207,15 +207,15 @@
                                         {student.name}
                                     </div>
 
-                                    {/* Action Buttons (Visible on hover when NOT in selection mode) */}
+                                    {/* Action Buttons (Visible always) */}
                                     {!onToggleSelection && (
-                                        <div className="absolute top-1 right-1 opacity-0 group-hover:opacity-100 transition-opacity flex gap-1 z-20">
+                                        <div className="absolute top-1 right-1 z-20">
                                             <button
-                                                className="p-1 bg-white/80 hover:bg-white text-slate-500 hover:text-brand-600 rounded shadow-sm"
+                                                className="p-1.5 bg-white shadow-sm border border-slate-200 rounded text-slate-400 hover:text-brand-600 hover:border-brand-300 transition-all"
                                                 onClick={(e) => { e.stopPropagation(); onEdit(student.id); }}
                                                 title="Settings"
                                             >
-                                                <window.Icon name="settings" size={12} />
+                                                <window.Icon name="settings" size={14} />
                                             </button>
                                         </div>
                                     )}

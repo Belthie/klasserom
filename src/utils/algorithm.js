@@ -44,18 +44,38 @@
     };
 
     window.SeatingAlgorithm = {
-        generate: (roster, roomConfig) => {
+        generate: (roster, roomConfig, customGroups = []) => {
             const { rows, cols } = roomConfig;
             const totalSeats = rows * cols;
             let currentLayout = new Array(totalSeats).fill(null);
+
+            // identify void seats
+            const voidIndices = new Set();
+            customGroups.forEach(g => {
+                if (g.type === 'void') {
+                    g.ids.forEach(id => voidIndices.add(id));
+                }
+            });
+
             const placedIds = new Set();
             const others = [];
 
             // 0. Place Strictly Locked Seats (Seat Index)
             roster.forEach(s => {
                 if (s.lockedSeat !== undefined && s.lockedSeat !== null && s.lockedSeat < totalSeats) {
-                    currentLayout[s.lockedSeat] = s;
-                    placedIds.add(s.id);
+                    // If locked seat is void, we have a conflict. prioritizing explicitly locked seat over void for now? 
+                    // or maybe void overrides? User said "empty seats impossible to fill". 
+                    // So if a seat is void, even a lock shouldn't work? 
+                    // Let's allow Lock to override Void if user forced it, but generally void wins.
+                    // Actually, if user locked a student to a void seat, that's a user error. 
+                    // Let's assume for this request "impossible to fill" means the generator won't put generic people there.
+                    if (!voidIndices.has(s.lockedSeat)) {
+                        currentLayout[s.lockedSeat] = s;
+                        placedIds.add(s.id);
+                    } else {
+                        // If locked to a void seat, treat as unconstrained for now (push to others) or just fail? 
+                        // Let's push to others to avoid disappearing students.
+                    }
                 }
             });
 
@@ -65,7 +85,10 @@
 
             // Helper to find seat in range
             const fillRandomly = (students, seatIndices) => {
-                const shuffledSeats = shuffle(seatIndices);
+                // Filter out void seats
+                const validSeats = seatIndices.filter(idx => !voidIndices.has(idx));
+                const shuffledSeats = shuffle(validSeats);
+
                 students.forEach(s => {
                     const seat = shuffledSeats.find(idx => currentLayout[idx] === null);
                     if (seat !== undefined) {
@@ -79,7 +102,7 @@
 
             // Place Front
             let frontSeats = [];
-            for (let i = 0; i < cols; i++) frontSeats.push(i); // First row only? Or first few? Usually Row 1.
+            for (let i = 0; i < cols; i++) frontSeats.push(i);
             fillRandomly(lockedFront, frontSeats);
 
             // Place Back
@@ -95,12 +118,13 @@
             // Fill empty spots with remaining
             const shuffledOthers = shuffle(others);
             shuffledOthers.forEach(s => {
-                const emptyIdx = currentLayout.findIndex(x => x === null);
+                // Find empty spot that is NOT void
+                const emptyIdx = currentLayout.findIndex((x, idx) => x === null && !voidIndices.has(idx));
                 if (emptyIdx !== -1) currentLayout[emptyIdx] = s;
             });
 
             // OPTIMIZATION LOOP
-            for (let iter = 0; iter < 2000; iter++) { // Increased iterations
+            for (let iter = 0; iter < 2000; iter++) {
                 const score = window.SeatingAlgorithm.evaluate(currentLayout, roomConfig);
                 if (score.violations.length === 0) break;
 
@@ -109,14 +133,18 @@
 
                 // Determine Swap Candidate
                 const idx1 = currentLayout.indexOf(violation.student);
-                if (idx1 === -1 || (violation.student.lockedSeat !== undefined && violation.student.lockedSeat !== null)) continue; // Don't move specific locked
+                if (idx1 === -1 || (violation.student.lockedSeat !== undefined && violation.student.lockedSeat !== null)) continue;
 
-                // Try to swap with a random seat (better heuristic could be used)
+                // Try to swap with a random seat 
                 const idx2 = Math.floor(Math.random() * totalSeats);
+
+                // CRITICAL: Don't swap into a void seat
+                if (voidIndices.has(idx2)) continue;
+
                 const student2 = currentLayout[idx2];
 
                 // Validate Swap
-                if (student2 && student2.lockedSeat !== undefined) continue; // Target is locked
+                if (student2 && student2.lockedSeat !== undefined) continue;
 
                 // Check Zones
                 if (violation.student.constraints.includes('lock_front') && Math.floor(idx2 / cols) !== 0) continue;

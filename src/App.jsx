@@ -192,8 +192,8 @@
             }
 
             const roster = [...students];
-            // 2. Generate new, passing history for avoidance
-            const newLayoutObjects = window.SeatingAlgorithm.generate(roster, { ...roomConfig, history: newHistory });
+            // 2. Generate new, passing history for avoidance AND customGroups for void seats
+            const newLayoutObjects = window.SeatingAlgorithm.generate(roster, { ...roomConfig, history: newHistory }, activeClass.customGroups || []);
             const newLayoutIds = newLayoutObjects.map(s => s ? s.id : null);
 
             const evalResult = window.SeatingAlgorithm.evaluate(newLayoutObjects, { ...roomConfig, history: newHistory });
@@ -362,8 +362,8 @@
                         <div className="flex items-center gap-4">
                             {/* Class Switcher */}
                             <div className="relative group">
-                                <button className="flex items-center gap-2 text-xl font-bold bg-gradient-to-r from-brand-600 to-indigo-600 bg-clip-text text-transparent hover:opacity-80">
-                                    {activeClass.name} <window.Icon name="chevron-down" size={16} className="text-slate-400" />
+                                <button className="flex items-center gap-2 text-xl font-bold bg-white border border-slate-200 shadow-sm px-3 py-1.5 rounded-lg text-slate-700 hover:bg-slate-50 hover:border-slate-300 transition-all">
+                                    <span className="bg-gradient-to-r from-brand-600 to-indigo-600 bg-clip-text text-transparent">{activeClass.name}</span> <window.Icon name="chevron-down" size={16} className="text-slate-400" />
                                 </button>
                                 <div className="absolute top-full left-0 mt-2 w-56 bg-white rounded-lg shadow-xl border border-slate-100 p-2 z-50 hidden group-hover:block">
                                     <div className="mb-2 pb-2 border-b border-slate-100">
