@@ -133,86 +133,85 @@
                             >
                                 <window.Icon name="users" size={14} /> Fill with Test Students
                             </button>
-                        </div>
 
                             {/* Unassigned List */}
-                    <div>
-                        <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2 flex justify-between items-center">
-                            <span>Roster ({unassigned.length}/{students.length})</span>
-                            {students.length > 0 && (
-                                <button
-                                    onClick={() => { if (confirm('Delete ALL students? This cannot be undone.')) onClearRoster(); }}
-                                    className="text-[10px] text-red-500 hover:text-red-700 bg-red-50 px-2 py-0.5 rounded border border-red-100 transition-colors"
+                            <div>
+                                <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2 flex justify-between items-center">
+                                    <span>Roster ({unassigned.length}/{students.length})</span>
+                                    {students.length > 0 && (
+                                        <button
+                                            onClick={() => { if (confirm('Delete ALL students? This cannot be undone.')) onClearRoster(); }}
+                                            className="text-[10px] text-red-500 hover:text-red-700 bg-red-50 px-2 py-0.5 rounded border border-red-100 transition-colors"
+                                        >
+                                            Clear All
+                                        </button>
+                                    )}
+                                </h3>
+                                <div className="space-y-2 min-h-[100px] pb-10"
+                                    onDragOver={e => e.preventDefault()}
                                 >
-                                    Clear All
-                                </button>
-                            )}
-                        </h3>
-                        <div className="space-y-2 min-h-[100px] pb-10"
-                            onDragOver={e => e.preventDefault()}
-                        >
-                            {unassigned.map(s => (
-                                <div
-                                    key={s.id}
-                                    draggable="true"
-                                    className="cursor-grab active:cursor-grabbing relative group"
-                                    onDragStart={e => {
-                                        e.dataTransfer.setData('type', 'sidebar_student');
-                                        e.dataTransfer.setData('studentId', s.id);
-                                    }}
-                                >
-                                    <window.StudentCard
-                                        student={s}
-                                        onEdit={() => onEdit(s.id)}
-                                    />
-                                    <button
-                                        onClick={() => { if (confirm('Delete student?')) onDeleteStudent(s.id); }}
-                                        className="absolute top-2 right-2 p-1 bg-white text-slate-400 hover:text-red-500 rounded shadow-sm border border-slate-100 opacity-0 group-hover:opacity-100 transition-all z-10"
-                                        title="Delete Student"
-                                    >
-                                        <window.Icon name="trash-2" size={14} />
-                                    </button>
+                                    {unassigned.map(s => (
+                                        <div
+                                            key={s.id}
+                                            draggable="true"
+                                            className="cursor-grab active:cursor-grabbing relative group"
+                                            onDragStart={e => {
+                                                e.dataTransfer.setData('type', 'sidebar_student');
+                                                e.dataTransfer.setData('studentId', s.id);
+                                            }}
+                                        >
+                                            <window.StudentCard
+                                                student={s}
+                                                onEdit={() => onEdit(s.id)}
+                                            />
+                                            <button
+                                                onClick={() => { if (confirm('Delete student?')) onDeleteStudent(s.id); }}
+                                                className="absolute top-2 right-2 p-1 bg-white text-slate-400 hover:text-red-500 rounded shadow-sm border border-slate-100 opacity-0 group-hover:opacity-100 transition-all z-10"
+                                                title="Delete Student"
+                                            >
+                                                <window.Icon name="trash-2" size={14} />
+                                            </button>
+                                        </div>
+                                    ))}
+                                    {unassigned.length === 0 && students.length > 0 && <div className="text-center py-4 text-slate-400 text-xs italic bg-slate-50 rounded-lg border border-dashed">All students seated</div>}
+                                    {students.length === 0 && <div className="text-center py-4 text-slate-400 text-xs italic">No students yet. Import some!</div>}
                                 </div>
-                            ))}
-                            {unassigned.length === 0 && students.length > 0 && <div className="text-center py-4 text-slate-400 text-xs italic bg-slate-50 rounded-lg border border-dashed">All students seated</div>}
-                            {students.length === 0 && <div className="text-center py-4 text-slate-400 text-xs italic">No students yet. Import some!</div>}
-                        </div>
-                    </div>
-                </div>
-                ) : (
-                <div className="p-4 space-y-6">
-                    {/* Room Config */}
-                    <section>
-                        <h3 className="font-bold text-slate-800 mb-3 flex items-center gap-2"><window.Icon name="grid-3x3" size={16} /> Room Dimensions</h3>
-                        <div className="grid grid-cols-2 gap-4">
-                            <div>
-                                <label className="text-xs text-slate-500 block mb-1 font-medium">Rows</label>
-                                <input type="number" min="1" max="20" value={roomConfig.rows} onChange={e => onUpdateConfig('rows', +e.target.value)} className="w-full p-2 bg-slate-50 border rounded-lg text-sm focus:ring-2 focus:ring-brand-500 outline-none" />
-                            </div>
-                            <div>
-                                <label className="text-xs text-slate-500 block mb-1 font-medium">Columns</label>
-                                <input type="number" min="1" max="20" value={roomConfig.cols} onChange={e => onUpdateConfig('cols', +e.target.value)} className="w-full p-2 bg-slate-50 border rounded-lg text-sm focus:ring-2 focus:ring-brand-500 outline-none" />
                             </div>
                         </div>
-                        <div className="mt-2 text-xs text-slate-400 text-center">Total Seats: {roomConfig.rows * roomConfig.cols}</div>
-                    </section>
+                    ) : (
+                        <div className="p-4 space-y-6">
+                            {/* Room Config */}
+                            <section>
+                                <h3 className="font-bold text-slate-800 mb-3 flex items-center gap-2"><window.Icon name="grid-3x3" size={16} /> Room Dimensions</h3>
+                                <div className="grid grid-cols-2 gap-4">
+                                    <div>
+                                        <label className="text-xs text-slate-500 block mb-1 font-medium">Rows</label>
+                                        <input type="number" min="1" max="20" value={roomConfig.rows} onChange={e => onUpdateConfig('rows', +e.target.value)} className="w-full p-2 bg-slate-50 border rounded-lg text-sm focus:ring-2 focus:ring-brand-500 outline-none" />
+                                    </div>
+                                    <div>
+                                        <label className="text-xs text-slate-500 block mb-1 font-medium">Columns</label>
+                                        <input type="number" min="1" max="20" value={roomConfig.cols} onChange={e => onUpdateConfig('cols', +e.target.value)} className="w-full p-2 bg-slate-50 border rounded-lg text-sm focus:ring-2 focus:ring-brand-500 outline-none" />
+                                    </div>
+                                </div>
+                                <div className="mt-2 text-xs text-slate-400 text-center">Total Seats: {roomConfig.rows * roomConfig.cols}</div>
+                            </section>
 
-                    <section>
-                        <label className="block text-xs text-slate-500 font-bold mb-2 uppercase tracking-wider">Grouping Style</label>
-                        <select
-                            className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-brand-500 outline-none"
-                            value={roomConfig.grouping}
-                            onChange={e => onUpdateConfig('grouping', e.target.value)}
-                        >
-                            <option value="None">Standard Grid</option>
-                            <option value="Pairs">Pairs (2)</option>
-                            <option value="Groups of 4">Islands (Group of 4)</option>
-                        </select>
-                    </section>
-                </div>
+                            <section>
+                                <label className="block text-xs text-slate-500 font-bold mb-2 uppercase tracking-wider">Grouping Style</label>
+                                <select
+                                    className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-brand-500 outline-none"
+                                    value={roomConfig.grouping}
+                                    onChange={e => onUpdateConfig('grouping', e.target.value)}
+                                >
+                                    <option value="None">Standard Grid</option>
+                                    <option value="Pairs">Pairs (2)</option>
+                                    <option value="Groups of 4">Islands (Group of 4)</option>
+                                </select>
+                            </section>
+                        </div>
                     )}
-            </div>
-                {/* Modal Removed from here */ }
+                </div>
+                {/* Modal Removed from here */}
             </div >
         );
     };
