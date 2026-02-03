@@ -98,6 +98,60 @@
             setActiveClassId(newId);
         };
 
+        const handleResetClass = () => {
+            if (confirm("Are you sure you want to completely RESET this class? This will wipe all students, rules, and layout.")) {
+                updateActiveClass({
+                    students: [],
+                    layout: new Array(roomConfig.rows * roomConfig.cols).fill(null),
+                    score: null,
+                    history: [],
+                    customGroups: []
+                });
+            }
+        };
+
+        const handleExportClass = () => {
+            const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(activeClass));
+            const downloadAnchorNode = document.createElement('a');
+            downloadAnchorNode.setAttribute("href", dataStr);
+            downloadAnchorNode.setAttribute("download", `${activeClass.name || "classroom"}_backup.json`);
+            document.body.appendChild(downloadAnchorNode); // required for firefox
+            downloadAnchorNode.click();
+            downloadAnchorNode.remove();
+        };
+
+        const handleImportClassTrigger = () => {
+            document.getElementById('import-file-input').click();
+        };
+
+        const handleImportClassFile = (event) => {
+            const file = event.target.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                try {
+                    const imported = JSON.parse(e.target.result);
+                    if (!imported.id || !imported.roomConfig) {
+                        alert("Invalid Class File");
+                        return;
+                    }
+                    const newId = window.Utils.generateId();
+                    const newClass = { ...imported, id: newId, name: `${imported.name} (Imported)` };
+                    setClassrooms(prev => ({
+                        ...prev,
+                        [newId]: newClass
+                    }));
+                    setActiveClassId(newId);
+                } catch (err) {
+                    console.error(err);
+                    alert("Failed to import file");
+                }
+            };
+            reader.readAsText(file);
+            // Reset input
+            event.target.value = null;
+        };
+
         const handleDeleteClass = (idToDelete) => {
             if (Object.keys(classrooms).length <= 1) return; // Prevent deleting last
             const newClassrooms = { ...classrooms };
@@ -336,9 +390,23 @@
                                             </li>
                                         ))}
                                     </ul>
-                                    <button onClick={handleAddClass} className="w-full mt-2 text-xs font-bold text-center py-2 bg-slate-50 hover:bg-slate-100 text-brand-600 rounded border border-dashed border-brand-200">
-                                        + New Class
-                                    </button>
+                                    <div className="pt-2 mt-2 border-t border-slate-100 flex flex-col gap-1">
+                                        <button onClick={handleAddClass} className="w-full text-xs font-bold text-center py-2 bg-slate-50 hover:bg-slate-100 text-brand-600 rounded border border-dashed border-brand-200">
+                                            + New Class
+                                        </button>
+                                        <div className="grid grid-cols-2 gap-1 mt-1">
+                                            <button onClick={handleExportClass} className="text-xs py-1.5 bg-white border border-slate-200 hover:bg-slate-50 text-slate-600 rounded flex items-center justify-center gap-1" title="Save Class to File">
+                                                <window.Icon name="download" size={12} /> Save
+                                            </button>
+                                            <button onClick={handleImportClassTrigger} className="text-xs py-1.5 bg-white border border-slate-200 hover:bg-slate-50 text-slate-600 rounded flex items-center justify-center gap-1" title="Load Class from File">
+                                                <window.Icon name="upload" size={12} /> Load
+                                            </button>
+                                            <input type="file" id="import-file-input" className="hidden" accept=".json" onChange={handleImportClassFile} />
+                                        </div>
+                                        <button onClick={handleResetClass} className="w-full mt-1 text-xs py-1.5 text-red-500 hover:bg-red-50 rounded flex items-center justify-center gap-1 font-medium">
+                                            <window.Icon name="rotate-ccw" size={12} /> Reset Current Class
+                                        </button>
+                                    </div>
                                 </div>
                             </div>
 
@@ -637,7 +705,17 @@
                                                 </div>
                                             </div>
                                         </div>
-                                        <div className="p-4 border-t bg-slate-50 flex justify-end">
+                                        <div className="p-4 border-t bg-slate-50 flex justify-between items-center">
+                                            <button
+                                                onClick={() => {
+                                                    if (confirm("Clear all rules (locks, buddies, enemies) for this student?")) {
+                                                        handleUpdateStudent(s.id, { constraints: [], buddies: [], enemies: [], lockedSeat: null });
+                                                    }
+                                                }}
+                                                className="text-xs text-red-500 hover:text-red-700 font-medium flex items-center gap-1"
+                                            >
+                                                <window.Icon name="trash-2" size={12} /> Clear Rules
+                                            </button>
                                             <button onClick={() => setEditingId(null)} className="px-4 py-2 bg-white border border-slate-200 text-slate-700 font-medium rounded-lg hover:bg-slate-100 shadow-sm">Done</button>
                                         </div>
                                     </div>
