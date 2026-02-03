@@ -10,7 +10,8 @@
         onEdit,
         roomConfig,
         onUpdateConfig,
-        onGenerate
+        onGenerate,
+        onFillTestStudents // New
     }) => {
         const [tab, setTab] = React.useState('roster'); // roster | settings
         const [importText, setImportText] = React.useState('');
@@ -124,6 +125,15 @@
                                         <window.Icon name="plus" size={16} />
                                     </button>
                                 </div>
+
+                                {/* Fill Test Students */}
+                                <button
+                                    onClick={onFillTestStudents}
+                                    className="w-full py-2 border border-dashed border-slate-300 rounded-lg text-xs font-bold text-slate-500 hover:text-brand-600 hover:border-brand-300 hover:bg-slate-50 transition-all flex items-center justify-center gap-2"
+                                    title="Generate random students to fill the classroom"
+                                >
+                                    <window.Icon name="users" size={14} /> Fill with Test Students
+                                </button>
                             </div>
 
                             {/* Unassigned List */}

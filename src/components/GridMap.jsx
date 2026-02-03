@@ -14,7 +14,10 @@
         const getGroupColor = (index) => {
             // Check Custom Groups first (Priority over Auto-Grouping)
             const customGroup = customGroups.find(g => g.ids.includes(index));
-            if (customGroup) return customGroup.color;
+            if (customGroup) {
+                if (customGroup.type === 'void') return 'void';
+                return customGroup.color;
+            }
 
             if (grouping === 'None') return '';
 
@@ -36,7 +39,7 @@
         const getEffectiveGroupId = (index) => {
             // 1. Custom Group (Priority)
             const customGroup = customGroups.find(g => g.ids.includes(index));
-            if (customGroup) return `custom-${customGroup.id}`;
+            if (customGroup) return `custom-${customGroup.id}`; // Void groups are also groups regarding spacing
 
             // 2. Auto Group
             if (grouping === 'None') return null;
@@ -140,10 +143,18 @@
                     // Priority: Selected (Blue) > Violation (Red) > Group Color > Default
                     let baseColor = 'bg-white';
                     let borderColor = 'border-slate-200';
+                    let isVoid = groupColorStr === 'void';
+
+                    if (customGroups.some(g => g.type === 'void' && g.ids.includes(index))) {
+                        isVoid = true;
+                    }
 
                     if (isSelected) {
                         baseColor = 'bg-brand-100';
                         borderColor = 'border-brand-500 ring-2 ring-brand-300 ring-offset-1 z-20';
+                    } else if (isVoid) {
+                        baseColor = 'bg-transparent'; // or bg-slate-50
+                        borderColor = 'border-transparent';
                     } else if (isViolation) {
                         baseColor = 'bg-red-100';
                         borderColor = 'border-red-400 z-10';
@@ -158,10 +169,15 @@
 
                     const finalClass = `
                         ${baseColor} ${borderColor}
-                        ${!onToggleSelection && !student ? 'hover:bg-opacity-80' : ''}
+                        ${!onToggleSelection && !student && !isVoid ? 'hover:bg-opacity-80' : ''}
                         ${!onToggleSelection && student ? 'hover:border-brand-400 shadow-sm' : ''}
-                        ${onToggleSelection ? 'cursor-pointer hover:bg-brand-50' : 'cursor-move'}
+                        ${onToggleSelection ? 'cursor-pointer hover:bg-brand-50' : (isVoid ? '' : 'cursor-move')}
+                        ${isVoid && !onToggleSelection ? 'opacity-30 pointer-events-none' : ''} 
+                        ${isVoid && onToggleSelection ? 'pattern-diagonal-lines opacity-100' : ''}
                     `;
+                    // Note: pattern-diagonal-lines is not a standard utility, using opacity/stripes is better.
+                    // For Void in selection mode, let's just make it look distinct (e.g. hatched).
+                    // Actually, let's simple use opacity for now.
 
                     return (
                         <div
@@ -171,12 +187,17 @@
                                 ${finalClass}
                                 ${spacingClass}
                             `}
-                            draggable={!onToggleSelection}
-                            onDragStart={(e) => handleDragStart(e, index, student)}
-                            onDrop={(e) => handleDrop(e, index)}
-                            onDragOver={handleDragOver}
+                            draggable={!onToggleSelection && !isVoid}
+                            onDragStart={(e) => !isVoid && handleDragStart(e, index, student)}
+                            onDrop={(e) => !isVoid && handleDrop(e, index)}
+                            onDragOver={!isVoid ? handleDragOver : undefined}
                             onClick={() => onToggleSelection && onToggleSelection(index)}
                         >
+                            {isVoid && !student && (
+                                <div className="absolute inset-0 flex items-center justify-center pointer-events-none opacity-20">
+                                    <window.Icon name="ban" size={32} className="text-slate-400" />
+                                </div>
+                            )}
                             {student ? (
                                 <>
                                     <div className="w-8 h-8 rounded-full bg-white/90 border border-slate-100 text-brand-700 flex items-center justify-center font-bold mb-2 shadow-sm pointer-events-none">

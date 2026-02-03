@@ -191,18 +191,22 @@
             }
         };
 
-        const handleCreateGroup = () => {
+        const handleCreateGroup = (type = 'color') => {
             if (selectedSeats.length === 0) return;
-            // Pick a color based on existing count
-            const colors = [
-                'bg-blue-100 border-blue-200', 'bg-green-100 border-green-200',
-                'bg-orange-100 border-orange-200', 'bg-purple-100 border-purple-200',
-                'bg-pink-100 border-pink-200', 'bg-teal-100 border-teal-200'
-            ];
-            const color = colors[(activeClass.customGroups || []).length % colors.length];
+
+            let color = '';
+            if (type === 'color') {
+                const colors = [
+                    'bg-blue-100 border-blue-200', 'bg-green-100 border-green-200',
+                    'bg-orange-100 border-orange-200', 'bg-purple-100 border-purple-200',
+                    'bg-pink-100 border-pink-200', 'bg-teal-100 border-teal-200'
+                ];
+                color = colors[(activeClass.customGroups || []).length % colors.length];
+            }
 
             const newGroup = {
                 id: window.Utils.generateId(),
+                type: type, // 'color' or 'void'
                 color,
                 ids: [...selectedSeats]
             };
@@ -216,6 +220,21 @@
                 })).filter(g => g.ids.length > 0); // Clean up empty groups
             };
 
+            // If creating a VOID group, we should also remove any students currently in those seats
+            if (type === 'void') {
+                const currentLayout = [...activeClass.layout];
+                let changed = false;
+                selectedSeats.forEach(idx => {
+                    if (currentLayout[idx]) {
+                        currentLayout[idx] = null; // Move student back to roster implicitly (by removing from layout)
+                        changed = true;
+                    }
+                });
+                if (changed) {
+                    updateActiveClass({ layout: currentLayout });
+                }
+            }
+
             updateActiveClass({
                 customGroups: [...existingGroupsFn(activeClass.customGroups), newGroup]
             });
@@ -226,6 +245,30 @@
             if (confirm("Remove all manual groups?")) {
                 updateActiveClass({ customGroups: [] });
             }
+        };
+
+        const handleFillTestStudents = () => {
+            const currentCount = students.length;
+            const capacity = roomConfig.rows * roomConfig.cols;
+            if (currentCount >= capacity) {
+                alert("Classroom is already full!");
+                return;
+            }
+
+            const needed = capacity - currentCount;
+            if (!confirm(`Generate ${needed} test students to fill the room?`)) return;
+
+            const newStudents = new Array(needed).fill(null).map((_, i) => ({
+                id: window.Utils.generateId(),
+                name: `Student ${currentCount + i + 1}`,
+                constraints: [],
+                enemies: [],
+                buddies: [],
+                gender: Math.random() > 0.5 ? 'M' : 'F',
+                level: 2
+            }));
+
+            updateActiveClass({ students: [...students, ...newStudents] });
         };
 
         const generatePDF = async () => {
@@ -254,6 +297,7 @@
                         roomConfig={roomConfig}
                         onUpdateConfig={(k, v) => updateActiveClass({ roomConfig: { ...roomConfig, [k]: v } })}
                         onGenerate={handleGenerate}
+                        onFillTestStudents={handleFillTestStudents}
                     />
                 </div>
 
@@ -347,11 +391,19 @@
                                     <div className="flex items-center gap-2 animate-in fade-in slide-in-from-top-1 bg-indigo-50 px-2 py-1 rounded-lg border border-indigo-100">
                                         <span className="text-xs font-bold text-indigo-700 mr-2">Select Seats: {selectedSeats.length}</span>
                                         <button
-                                            onClick={handleCreateGroup}
+                                            onClick={() => handleCreateGroup('color')}
                                             disabled={selectedSeats.length === 0}
                                             className="px-2 py-1 text-xs bg-indigo-600 text-white rounded shadow-sm hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed"
                                         >
-                                            Create Group
+                                            Group
+                                        </button>
+                                        <button
+                                            onClick={() => handleCreateGroup('void')}
+                                            disabled={selectedSeats.length === 0}
+                                            className="px-2 py-1 text-xs bg-slate-600 text-white rounded shadow-sm hover:bg-slate-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                                            title="Mark selected seats as empty space"
+                                        >
+                                            <window.Icon name="ban" size={12} className="inline mr-1" /> Empty
                                         </button>
                                         <button
                                             onClick={() => { setIsGroupingMode(false); setSelectedSeats([]); }}
