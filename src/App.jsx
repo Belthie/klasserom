@@ -110,16 +110,39 @@
             }
         };
 
-        const handleExportClass = () => {
+        const handleExportClass = async () => {
             const encrypted = window.Security.encrypt(activeClass);
             if (!encrypted) {
                 alert("Failed to encrypt class data.");
                 return;
             }
+
+            const fileName = `${activeClass.name || "classroom"}.secure.json`;
+
+            // Try File System Access API
+            if (window.showSaveFilePicker) {
+                try {
+                    const handle = await window.showSaveFilePicker({
+                        suggestedName: fileName,
+                        types: [{
+                            description: 'Classroom Data File',
+                            accept: { 'application/json': ['.json'] },
+                        }],
+                    });
+                    const writable = await handle.createWritable();
+                    await writable.write(encrypted);
+                    await writable.close();
+                    return;
+                } catch (err) {
+                    if (err.name === 'AbortError') return; // User cancelled
+                    console.log("File Picker failed, falling back to download", err);
+                }
+            }
+
             const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(encrypted);
             const downloadAnchorNode = document.createElement('a');
             downloadAnchorNode.setAttribute("href", dataStr);
-            downloadAnchorNode.setAttribute("download", `${activeClass.name || "classroom"}.secure.json`);
+            downloadAnchorNode.setAttribute("download", fileName);
             document.body.appendChild(downloadAnchorNode); // required for firefox
             downloadAnchorNode.click();
             downloadAnchorNode.remove();
