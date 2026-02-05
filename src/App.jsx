@@ -577,7 +577,7 @@
                                                             onChange={e => handleUpdateStudent(s.id, { gender: e.target.value })}
                                                             className="w-full p-2 border border-slate-200 rounded text-sm bg-white outline-none focus:border-brand-500"
                                                         >
-                                                            <option value="O">Other/Unspecified</option>
+                                                            <option value="O">Not disclosed</option>
                                                             <option value="M">Boy</option>
                                                             <option value="F">Girl</option>
                                                         </select>
