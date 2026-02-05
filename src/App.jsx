@@ -23,7 +23,7 @@
                     id: firstId,
                     name: '10A',
                     students: defaultStudents,
-                    roomConfig: { rows: 5, cols: 6, grouping: 'None' },
+                    roomConfig: { rows: 5, cols: 6, grouping: 'None', enableGenderBalance: false, enableAcademicDiversity: false },
                     customGroups: [], // { ids: [], color: string }
                     layout: [],
                     score: null,
@@ -89,7 +89,7 @@
                     id: newId,
                     name: `New Class`, // User can rename later
                     students: [],
-                    roomConfig: { rows: 5, cols: 6, grouping: 'None' },
+                    roomConfig: { rows: 5, cols: 6, grouping: 'None', enableGenderBalance: false, enableAcademicDiversity: false },
                     layout: [],
                     score: null,
                     history: []
@@ -111,10 +111,15 @@
         };
 
         const handleExportClass = () => {
-            const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(activeClass));
+            const encrypted = window.Security.encrypt(activeClass);
+            if (!encrypted) {
+                alert("Failed to encrypt class data.");
+                return;
+            }
+            const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(encrypted);
             const downloadAnchorNode = document.createElement('a');
             downloadAnchorNode.setAttribute("href", dataStr);
-            downloadAnchorNode.setAttribute("download", `${activeClass.name || "classroom"}_backup.json`);
+            downloadAnchorNode.setAttribute("download", `${activeClass.name || "classroom"}.secure.json`);
             document.body.appendChild(downloadAnchorNode); // required for firefox
             downloadAnchorNode.click();
             downloadAnchorNode.remove();
@@ -130,9 +135,11 @@
             const reader = new FileReader();
             reader.onload = (e) => {
                 try {
-                    const imported = JSON.parse(e.target.result);
+                    const imported = window.Security.decrypt(e.target.result);
+                    if (!imported) return; // Decrypt handles error logging/alerting
+
                     if (!imported.id || !imported.roomConfig) {
-                        alert("Invalid Class File");
+                        alert("Invalid Class File Structure");
                         return;
                     }
                     const newId = window.Utils.generateId();

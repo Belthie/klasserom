@@ -194,31 +194,29 @@
                     });
                 }
 
-                // GENDER BALANCE (Soft Constraint) - DISABLED BY DEFAULT
-                // Prefer alternating genders side-by-side
-                /*
-                if (student.gender && student.gender !== 'O') {
-                    directNeighbors.forEach(nIdx => {
-                        const neighbor = layout[nIdx];
-                        if (neighbor && neighbor.gender && neighbor.gender !== 'O' && neighbor.gender === student.gender) {
-                            violations.push({ student, type: 'gender_clash', with: neighbor });
-                        }
-                    });
+                // GENDER BALANCE (Soft Constraint)
+                if (roomConfig.enableGenderBalance) {
+                    if (student.gender && student.gender !== 'O') {
+                        directNeighbors.forEach(nIdx => {
+                            const neighbor = layout[nIdx];
+                            if (neighbor && neighbor.gender && neighbor.gender !== 'O' && neighbor.gender === student.gender) {
+                                violations.push({ student, type: 'gender_clash', with: neighbor });
+                            }
+                        });
+                    }
                 }
-                */
 
-                // ACADEMIC DIVERSITY (Soft Constraint) - DISABLED BY DEFAULT
-                // Avoid Level 1 sitting with Level 1, or Level 3 with Level 3
-                /*
-                if (student.level) {
-                    directNeighbors.forEach(nIdx => {
-                        const neighbor = layout[nIdx];
-                        if (neighbor && neighbor.level === student.level && (student.level === 1 || student.level === 3)) {
-                            violations.push({ student, type: 'level_clumping', with: neighbor });
-                        }
-                    });
+                // ACADEMIC DIVERSITY (Soft Constraint)
+                if (roomConfig.enableAcademicDiversity) {
+                    if (student.level) {
+                        directNeighbors.forEach(nIdx => {
+                            const neighbor = layout[nIdx];
+                            if (neighbor && neighbor.level === student.level && (student.level === 1 || student.level === 3)) {
+                                violations.push({ student, type: 'level_clumping', with: neighbor });
+                            }
+                        });
+                    }
                 }
-                */
 
                 // HISTORY - Placeholder for future implementation
                 // (Currently does not enforce logic to avoid complexity)

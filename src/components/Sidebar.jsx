@@ -208,6 +208,37 @@
                                     <option value="Groups of 4">Islands (Group of 4)</option>
                                 </select>
                             </section>
+
+                            <section className="pt-4 border-t border-slate-100">
+                                <h3 className="font-bold text-slate-800 mb-3 flex items-center gap-2"><window.Icon name="sliders" size={16} /> Rules & Preferences</h3>
+                                <div className="space-y-3">
+                                    <label className="flex items-start gap-3 p-3 rounded-lg border border-slate-200 bg-slate-50 cursor-pointer hover:bg-white hover:border-brand-300 transition-all">
+                                        <input
+                                            type="checkbox"
+                                            checked={!!roomConfig.enableGenderBalance}
+                                            onChange={e => onUpdateConfig('enableGenderBalance', e.target.checked)}
+                                            className="mt-1 w-4 h-4 text-brand-600 rounded focus:ring-brand-500 border-slate-300"
+                                        />
+                                        <div>
+                                            <span className="block text-sm font-bold text-slate-700">Gender Balance</span>
+                                            <span className="block text-xs text-slate-500">Avoid seating same gender side-by-side</span>
+                                        </div>
+                                    </label>
+
+                                    <label className="flex items-start gap-3 p-3 rounded-lg border border-slate-200 bg-slate-50 cursor-pointer hover:bg-white hover:border-brand-300 transition-all">
+                                        <input
+                                            type="checkbox"
+                                            checked={!!roomConfig.enableAcademicDiversity}
+                                            onChange={e => onUpdateConfig('enableAcademicDiversity', e.target.checked)}
+                                            className="mt-1 w-4 h-4 text-brand-600 rounded focus:ring-brand-500 border-slate-300"
+                                        />
+                                        <div>
+                                            <span className="block text-sm font-bold text-slate-700">Academic Mix</span>
+                                            <span className="block text-xs text-slate-500">Distribute high/low academic levels</span>
+                                        </div>
+                                    </label>
+                                </div>
+                            </section>
                         </div>
                     )}
                 </div>
