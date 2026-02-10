@@ -183,7 +183,7 @@
                         <div
                             key={index}
                             className={`
-                                relative min-h-[100px] rounded-lg border-2 flex flex-col items-center justify-center p-2 text-center transition-all group
+                                relative min-h-[120px] rounded-lg border-2 flex flex-col items-center justify-center p-2 text-center transition-all group
                                 ${finalClass}
                                 ${spacingClass}
                             `}
@@ -200,16 +200,16 @@
                             )}
                             {student ? (
                                 <>
-                                    <div className="w-8 h-8 rounded-full bg-white/90 border border-slate-100 text-brand-700 flex items-center justify-center font-bold mb-2 shadow-sm pointer-events-none">
-                                        {student.name.substring(0, 2).toUpperCase()}
+                                    <div className="w-10 h-10 rounded-full bg-white border border-slate-100 text-brand-700 flex items-center justify-center font-bold mb-2 shadow-sm pointer-events-none leading-[2.5rem] print:shadow-none">
+                                        <span className="mt-0.5 inline-block">{student.name.substring(0, 2).toUpperCase()}</span>
                                     </div>
-                                    <div className="font-semibold text-slate-800 text-sm leading-tight line-clamp-2 pointer-events-none">
+                                    <div className="font-semibold text-slate-800 text-sm leading-tight pointer-events-none break-words w-full px-1">
                                         {student.name}
                                     </div>
 
                                     {/* Action Buttons (Visible always) */}
                                     {!onToggleSelection && (
-                                        <div className="absolute top-1 right-1 z-20">
+                                        <div className="absolute top-1 right-1 z-20 print:hidden">
                                             <button
                                                 className="p-1.5 bg-white shadow-sm border border-slate-200 rounded text-slate-400 hover:text-brand-600 hover:border-brand-300 transition-all"
                                                 onClick={(e) => { e.stopPropagation(); onEdit(student.id); }}
@@ -221,7 +221,7 @@
                                     )}
 
                                     {/* Constraints Indicators */}
-                                    <div className="absolute bottom-1 left-2 flex gap-1 pointer-events-none">
+                                    <div className="absolute bottom-1 left-2 flex gap-1 pointer-events-none print:hidden">
                                         {student.constraints.includes('lock_front') && <div className="w-1.5 h-1.5 rounded-full bg-amber-500" title="Front Locked"></div>}
                                         {student.constraints.includes('lock_back') && <div className="w-1.5 h-1.5 rounded-full bg-purple-500" title="Back Locked"></div>}
                                         {student.lockedSeat !== undefined && student.lockedSeat !== null && <div className="w-1.5 h-1.5 rounded-full bg-slate-900" title="Locked to Seat"></div>}
