@@ -1,10 +1,10 @@
+
 (function () {
     window.GroupGenerator = ({ students, title }) => {
         const [groupSize, setGroupSize] = React.useState(3);
         const [groups, setGroups] = React.useState([]);
         const [isAnimating, setIsAnimating] = React.useState(false);
-        // Use a ref to track if we've done the initial generation to avoid double-shuffle on mount if strict mode
-        const mounted = React.useRef(false);
+        const [draggedItem, setDraggedItem] = React.useState(null); // { groupIndex, studentIndex, student }
 
         const generate = (size, currentStudents) => {
             if (!currentStudents || currentStudents.length === 0) return [];
@@ -27,7 +27,6 @@
                         chunks.pop();
                     } else {
                         // Size 3+, Remainder 1 -> Steal from previous (make it size-1, last=2)
-                        // Example: Size 3. Prev=3, Last=1 -> Prev=2, Last=2.
                         const stolen = prev.pop();
                         last.unshift(stolen);
                     }
@@ -40,17 +39,73 @@
         // Initial Generation
         React.useEffect(() => {
             setGroups(generate(groupSize, students));
-        }, [groupSize, students]); // Re-generate if size or students change
+        }, [groupSize, students]);
 
         const handleRegenerate = () => {
             setIsAnimating(true);
-            setGroups(prev => []); // Tempoarily clear or keep? Better to keep and swap
-            // Simulate anim
+            setGroups([]);
             setTimeout(() => {
                 setGroups(generate(groupSize, students));
                 setIsAnimating(false);
             }, 300);
         };
+
+        // --- Drag & Drop Handlers ---
+        const handleDragStart = (e, groupIndex, studentIndex, student) => {
+            setDraggedItem({ groupIndex, studentIndex, student });
+            e.dataTransfer.effectAllowed = 'move';
+            // Set drag image or data if needed
+            // e.dataTransfer.setData('text/plain', JSON.stringify({ groupIndex, studentIndex }));
+        };
+
+        const handleDragOver = (e) => {
+            e.preventDefault();
+            e.dataTransfer.dropEffect = 'move'; // Show that it's a valid drop target
+        };
+
+        const handleDropOnStudent = (e, targetGroupIndex, targetStudentIndex) => {
+            e.preventDefault();
+            if (!draggedItem) return;
+
+            // Scenario 1: Swap two students
+            const sourceGroupIdx = draggedItem.groupIndex;
+            const sourceStudentIdx = draggedItem.studentIndex;
+
+            if (sourceGroupIdx === targetGroupIndex && sourceStudentIdx === targetStudentIndex) {
+                setDraggedItem(null);
+                return; // Dropped on self
+            }
+
+            const newGroups = [...groups];
+            const sourceGroup = [...newGroups[sourceGroupIdx]];
+            const targetGroup = [...newGroups[targetGroupIndex]];
+
+            // Swap logic
+            const sourceStudent = sourceGroup[sourceStudentIdx];
+            const targetStudent = targetGroup[targetStudentIndex];
+
+            // If same group, just swap in array
+            if (sourceGroupIdx === targetGroupIndex) {
+                sourceGroup[sourceStudentIdx] = targetStudent;
+                sourceGroup[targetStudentIndex] = sourceStudent;
+                newGroups[sourceGroupIdx] = sourceGroup;
+            } else {
+                // Different groups
+                sourceGroup[sourceStudentIdx] = targetStudent;
+                targetGroup[targetStudentIndex] = sourceStudent;
+                newGroups[sourceGroupIdx] = sourceGroup;
+                newGroups[targetGroupIndex] = targetGroup;
+            }
+
+            setGroups(newGroups);
+            setDraggedItem(null);
+        };
+
+        // Optional: Allow dropping on empty space in group to specificially MOVE instead of SWAP?
+        // For now, let's keep it simple: Drag onto another student = Swap.
+        // What if user wants to move a student to a group that has space (e.g. if we allow uneven groups)?
+        // The current generator logic tries to keep groups full.
+        // Let's stick to SWAP for now as per user request.
 
         return (
             <div className="w-full h-full flex flex-col items-center bg-slate-50/50">
@@ -96,17 +151,24 @@
                 {/* Grid */}
                 <div className="flex-1 w-full overflow-y-auto custom-scrollbar p-6">
                     <div className="max-w-6xl mx-auto grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 print:grid-cols-3 print:gap-4">
-                        {groups.map((group, i) => (
+                        {groups.map((group, groupIndex) => (
                             <div
-                                key={i}
+                                key={groupIndex}
                                 className={`bg-white border-2 ${isAnimating ? 'border-slate-100 scale-95 opacity-50' : 'border-slate-200 scale-100 opacity-100'} rounded-2xl p-6 shadow-sm flex flex-col items-center transition-all duration-300 break-inside-avoid print:border shadow-none`}
                             >
                                 <div className="w-10 h-10 rounded-full bg-slate-100 text-slate-400 flex items-center justify-center font-bold text-lg mb-4 print:mb-2 print:w-8 print:h-8 print:text-sm">
-                                    {i + 1}
+                                    {groupIndex + 1}
                                 </div>
                                 <div className="w-full space-y-2">
-                                    {group.map(s => (
-                                        <div key={s.id} className="text-xl font-bold text-slate-800 text-center py-2 bg-slate-50 rounded-xl border border-slate-100 print:text-lg print:py-1 print:border-none print:bg-transparent">
+                                    {group.map((s, studentIndex) => (
+                                        <div
+                                            key={s.id}
+                                            draggable
+                                            onDragStart={(e) => handleDragStart(e, groupIndex, studentIndex, s)}
+                                            onDragOver={handleDragOver}
+                                            onDrop={(e) => handleDropOnStudent(e, groupIndex, studentIndex)}
+                                            className="text-xl font-bold text-slate-800 text-center py-2 bg-slate-50 rounded-xl border border-slate-100 cursor-grab active:cursor-grabbing hover:border-brand-300 hover:shadow-sm transition-all print:text-lg print:py-1 print:border-none print:bg-transparent"
+                                        >
                                             {s.name}
                                         </div>
                                     ))}
