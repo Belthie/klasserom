@@ -369,7 +369,7 @@
         return (
             <div className="flex h-screen w-full bg-slate-50 text-slate-900 font-sans overflow-hidden">
                 {/* Sidebar */}
-                <div className={`${viewMode === 'projector' ? 'hidden' : 'block'}`}>
+                <div className={`${viewMode === 'projector' || viewMode === 'groups' ? 'hidden' : 'block'}`}>
                     <window.Sidebar
                         students={students}
                         unassigned={unassigned}
@@ -386,7 +386,7 @@
                 </div>
 
                 {/* Main Content */}
-                <div className={`flex-1 flex flex-col h-full relative ${viewMode === 'projector' ? 'pl-0' : 'pl-80'}`}>
+                <div className={`flex-1 flex flex-col h-full relative ${viewMode === 'projector' || viewMode === 'groups' ? 'pl-0' : 'pl-80'}`}>
                     {/* Toolbar */}
                     <header className="h-16 bg-white border-b border-slate-200 shadow-sm flex items-center justify-between px-6 shrink-0 z-20 print:hidden">
                         <div className="flex items-center gap-4">
@@ -533,6 +533,9 @@
                                 <button onClick={() => setViewMode('projector')} className={`gap-2 px-3 py-1.5 rounded-md text-sm font-medium transition-all flex items-center ${viewMode === 'projector' ? 'bg-white shadow text-slate-800' : 'text-slate-500 hover:text-slate-700'}`}>
                                     <window.Icon name="monitor" size={16} /> Projector
                                 </button>
+                                <button onClick={() => setViewMode('groups')} className={`gap-2 px-3 py-1.5 rounded-md text-sm font-medium transition-all flex items-center ${viewMode === 'groups' ? 'bg-white shadow text-slate-800' : 'text-slate-500 hover:text-slate-700'}`}>
+                                    <window.Icon name="shuffle" size={16} /> Temporary Groups
+                                </button>
                             </div>
 
                             <button onClick={() => window.print()} className="p-2 text-slate-500 hover:text-brand-600 hover:bg-slate-100 rounded-lg transition-colors" title="Print">
@@ -546,25 +549,31 @@
 
                     {/* Canvas Area */}
                     <main className="flex-1 overflow-auto bg-slate-50/50 p-8 relative flex flex-col items-center">
-                        <div id="seating-draw-area" className="w-full max-w-6xl mx-auto bg-white p-8 rounded-2xl shadow-sm border border-slate-200 min-h-[600px] print:p-0 print:border-none print:shadow-none">
-                            {/* Front of Room Indicator */}
-                            <div className="w-full h-8 mb-8 bg-slate-100 rounded-lg flex items-center justify-center text-slate-400 text-xs font-bold uppercase tracking-[0.2em] border border-dashed border-slate-300">
-                                Front of Room (Teacher's Desk)
+                        {viewMode === 'groups' ? (
+                            <div className="w-full h-full">
+                                <window.GroupGenerator students={students} title={activeClass.name} />
                             </div>
+                        ) : (
+                            <div id="seating-draw-area" className="w-full max-w-6xl mx-auto bg-white p-8 rounded-2xl shadow-sm border border-slate-200 min-h-[600px] print:p-0 print:border-none print:shadow-none">
+                                {/* Front of Room Indicator */}
+                                <div className="w-full h-8 mb-8 bg-slate-100 rounded-lg flex items-center justify-center text-slate-400 text-xs font-bold uppercase tracking-[0.2em] border border-dashed border-slate-300">
+                                    Front of Room (Teacher's Desk)
+                                </div>
 
-                            <window.GridMap
-                                layout={layout.map(id => getStudent(id) || null)}
-                                roomConfig={roomConfig}
-                                students={students}
-                                onSwap={handleSwap}
-                                onAssign={handleAssign}
-                                onEdit={(id) => setEditingId(id)}
-                                selection={isGroupingMode ? selectedSeats : []}
-                                violationIndices={!isGroupingMode && score ? score.violations.map(v => layout.indexOf(v.student.id)) : []}
-                                onToggleSelection={isGroupingMode ? handleToggleDetails : null}
-                                customGroups={activeClass.customGroups || []}
-                            />
-                        </div>
+                                <window.GridMap
+                                    layout={layout.map(id => getStudent(id) || null)}
+                                    roomConfig={roomConfig}
+                                    students={students}
+                                    onSwap={handleSwap}
+                                    onAssign={handleAssign}
+                                    onEdit={(id) => setEditingId(id)}
+                                    selection={isGroupingMode ? selectedSeats : []}
+                                    violationIndices={!isGroupingMode && score ? score.violations.map(v => layout.indexOf(v.student.id)) : []}
+                                    onToggleSelection={isGroupingMode ? handleToggleDetails : null}
+                                    customGroups={activeClass.customGroups || []}
+                                />
+                            </div>
+                        )}
                     </main>
                 </div>
 
