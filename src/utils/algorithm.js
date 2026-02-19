@@ -206,6 +206,19 @@
                     }
                 }
 
+                // SAME GENDER (Soft Constraint)
+                if (roomConfig.enableSameGender) {
+                    if (student.gender && student.gender !== 'O') {
+                        directNeighbors.forEach(nIdx => {
+                            const neighbor = layout[nIdx];
+                            // Penalize if neighbor is DIFFERENT gender
+                            if (neighbor && neighbor.gender && neighbor.gender !== 'O' && neighbor.gender !== student.gender) {
+                                violations.push({ student, type: 'gender_clash_mixed', with: neighbor });
+                            }
+                        });
+                    }
+                }
+
                 // ACADEMIC DIVERSITY (Soft Constraint)
                 if (roomConfig.enableAcademicDiversity) {
                     if (student.level) {

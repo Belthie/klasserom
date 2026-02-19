@@ -1,7 +1,14 @@
 
 (function () {
-    window.GridMap = ({ layout, roomConfig, onSwap, onAssign, onEdit, selection, violationIndices, onToggleSelection, customGroups = [] }) => {
+    window.GridMap = ({ layout, roomConfig, onSwap, onAssign, onEdit, selection, violationIndices, onToggleSelection, customGroups = [], isFurnitureMode, onFurnitureClick, students = [], isStudentMode }) => {
         const { rows, cols, grouping } = roomConfig;
+
+        // Resolve layout IDs to Student Objects
+        const displayLayout = layout.map(item => {
+            if (!item) return null;
+            if (typeof item === 'object') return item; // Already an object (legacy/gen)
+            return students.find(s => s.id === item) || null; // Resolve ID
+        });
 
         // Stronger Colors for Groups
         const GROUP_COLORS = [
@@ -134,7 +141,7 @@
                     gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))`
                 }}
             >
-                {layout.map((student, index) => {
+                {displayLayout.map((student, index) => {
                     const isSelected = selection && selection.includes(index);
                     const isViolation = violationIndices && violationIndices.includes(index);
                     const groupColorStr = getGroupColor(index);
@@ -149,13 +156,13 @@
                         isVoid = true;
                     }
 
-                    if (isSelected) {
+                    if (isSelected && !isStudentMode) {
                         baseColor = 'bg-brand-100';
                         borderColor = 'border-brand-500 ring-2 ring-brand-300 ring-offset-1 z-20';
                     } else if (isVoid) {
                         baseColor = 'bg-transparent'; // or bg-slate-50
                         borderColor = 'border-transparent';
-                    } else if (isViolation) {
+                    } else if (isViolation && !isStudentMode) {
                         baseColor = 'bg-red-100';
                         borderColor = 'border-red-400 z-10';
                     } else if (groupColorStr) {
@@ -171,9 +178,9 @@
                         ${baseColor} ${borderColor}
                         ${!onToggleSelection && !student && !isVoid ? 'hover:bg-opacity-80' : ''}
                         ${!onToggleSelection && student ? 'hover:border-brand-400 shadow-sm' : ''}
-                        ${onToggleSelection ? 'cursor-pointer hover:bg-brand-50' : (isVoid ? '' : 'cursor-move')}
-                        ${isVoid && !onToggleSelection ? 'opacity-30 pointer-events-none' : ''} 
-                        ${isVoid && onToggleSelection ? 'pattern-diagonal-lines opacity-100' : ''}
+                        ${onToggleSelection || isFurnitureMode ? 'cursor-pointer hover:bg-brand-50' : (isVoid ? '' : 'cursor-move')}
+                        ${isVoid && !onToggleSelection && !isFurnitureMode ? 'opacity-30 pointer-events-none' : ''} 
+                        ${isVoid && (onToggleSelection || isFurnitureMode) ? 'pattern-diagonal-lines opacity-100' : ''}
                     `;
                     // Note: pattern-diagonal-lines is not a standard utility, using opacity/stripes is better.
                     // For Void in selection mode, let's just make it look distinct (e.g. hatched).
@@ -183,7 +190,7 @@
                         <div
                             key={index}
                             className={`
-                                relative min-h-[120px] rounded-lg border-2 flex flex-col items-center justify-center p-2 text-center transition-all group
+                                relative aspect-[4/3] rounded-lg border-2 flex flex-col items-center justify-center p-1 text-center transition-all group w-full
                                 ${finalClass}
                                 ${spacingClass}
                             `}
@@ -191,7 +198,10 @@
                             onDragStart={(e) => !isVoid && handleDragStart(e, index, student)}
                             onDrop={(e) => !isVoid && handleDrop(e, index)}
                             onDragOver={!isVoid ? handleDragOver : undefined}
-                            onClick={() => onToggleSelection && onToggleSelection(index)}
+                            onClick={() => {
+                                if (onToggleSelection) onToggleSelection(index);
+                                else if (isFurnitureMode && onFurnitureClick) onFurnitureClick(index);
+                            }}
                         >
                             {isVoid && !student && (
                                 <div className="absolute inset-0 flex items-center justify-center pointer-events-none opacity-20">
@@ -208,7 +218,7 @@
                                     </div>
 
                                     {/* Action Buttons (Visible always) */}
-                                    {!onToggleSelection && (
+                                    {!onToggleSelection && !isStudentMode && (
                                         <div className="absolute top-1 right-1 z-20 print:hidden">
                                             <button
                                                 className="p-1.5 bg-white shadow-sm border border-slate-200 rounded text-slate-400 hover:text-brand-600 hover:border-brand-300 transition-all"
@@ -221,13 +231,15 @@
                                     )}
 
                                     {/* Constraints Indicators */}
-                                    <div className="absolute bottom-1 left-2 flex gap-1 pointer-events-none print:hidden">
-                                        {student.constraints.includes('lock_front') && <div className="w-1.5 h-1.5 rounded-full bg-amber-500" title="Front Locked"></div>}
-                                        {student.constraints.includes('lock_back') && <div className="w-1.5 h-1.5 rounded-full bg-purple-500" title="Back Locked"></div>}
-                                        {student.lockedSeat !== undefined && student.lockedSeat !== null && <div className="w-1.5 h-1.5 rounded-full bg-slate-900" title="Locked to Seat"></div>}
-                                        {student.buddies && student.buddies.length > 0 && <div className="w-1.5 h-1.5 rounded-full bg-green-500" title="Has Buddies"></div>}
-                                        {student.enemies && student.enemies.length > 0 && <div className="w-1.5 h-1.5 rounded-full bg-red-500" title="Separation Rule"></div>}
-                                    </div>
+                                    {!isStudentMode && (
+                                        <div className="absolute bottom-1 left-2 flex gap-1 pointer-events-none print:hidden">
+                                            {student.constraints.includes('lock_front') && <div className="w-1.5 h-1.5 rounded-full bg-amber-500" title="Front Locked"></div>}
+                                            {student.constraints.includes('lock_back') && <div className="w-1.5 h-1.5 rounded-full bg-purple-500" title="Back Locked"></div>}
+                                            {student.lockedSeat !== undefined && student.lockedSeat !== null && <div className="w-1.5 h-1.5 rounded-full bg-slate-900" title="Locked to Seat"></div>}
+                                            {student.buddies && student.buddies.length > 0 && <div className="w-1.5 h-1.5 rounded-full bg-green-500" title="Has Buddies"></div>}
+                                            {student.enemies && student.enemies.length > 0 && <div className="w-1.5 h-1.5 rounded-full bg-red-500" title="Separation Rule"></div>}
+                                        </div>
+                                    )}
                                 </>
                             ) : (
                                 <span className={`text-xs font-bold select-none ${groupColorStr ? 'text-slate-500/50' : 'text-slate-300'}`}>{index + 1}</span>
