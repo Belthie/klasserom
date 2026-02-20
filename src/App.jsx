@@ -752,7 +752,7 @@
                                     controls
                                     autoPlay
                                     className="w-full h-full object-contain"
-                                    src="https://mellemstrand.net/klasserom/video/smartplass.mp4"
+                                    src="https://mellemstrand.net/klasserom/video/smartplassv2.mp4"
                                 >
                                     Din nettleser støtter ikke videoavspilling.
                                 </video>
