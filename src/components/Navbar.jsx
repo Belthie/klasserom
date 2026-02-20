@@ -4,6 +4,7 @@
             { id: 'students', label: 'Elever', icon: 'users', hidden: isStudentMode },
             { id: 'room', label: 'Klasserom', icon: 'layout' },
             { id: 'groups', label: 'Tilfeldige Grupper', icon: 'shuffle' },
+            { id: 'random', label: 'Trekk Elev', icon: 'user' },
         ].filter(t => !t.hidden);
 
         return (

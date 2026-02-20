@@ -3,9 +3,6 @@
     window.RoomTab = ({ classTitle, roomConfig, onUpdateConfig, layout, onFurnitureClick, customGroups, onCreateGroup, onClearGroups, students, onGenerate, onSwap, onAssign, score, onEdit, onUndo, onRedo, canUndo, canRedo, pickedHistory, onPickStudent, onResetPickHistory, isStudentMode }) => {
         const [activeTool, setActiveTool] = React.useState('seating'); // 'seating' | 'furniture' | 'group'
         const [selection, setSelection] = React.useState([]);
-        const [showPicker, setShowPicker] = React.useState(false);
-        const [pickMode, setPickMode] = React.useState('random'); // 'random' | 'cycle'
-        const [pickedStudent, setPickedStudent] = React.useState(null);
         // isStudentMode passed as prop
 
         // Safety checks for dependencies
@@ -14,23 +11,6 @@
 
         if (!window.GridMap) console.error("RoomTab: window.GridMap is undefined");
         if (!window.Icon) console.error("RoomTab: window.Icon is undefined");
-
-        const handlePick = () => {
-            let candidates = students.filter(s => s.name);
-            if (pickMode === 'cycle') {
-                candidates = candidates.filter(s => !(pickedHistory || []).includes(s.id));
-                if (candidates.length === 0) {
-                    alert("Alle elever er trukket! Nullstill historikk for å starte på nytt.");
-                    return;
-                }
-            }
-            if (candidates.length === 0) return;
-
-            const randomIndex = Math.floor(Math.random() * candidates.length);
-            const selected = candidates[randomIndex];
-            setPickedStudent(selected);
-            onPickStudent(selected.id);
-        };
 
         const handleToggleSelection = (index) => {
             if (activeTool !== 'group') return;
@@ -79,32 +59,8 @@
 
 
                         <div className={`space-y-6 transition-opacity duration-300 ${isStudentMode ? 'opacity-20 pointer-events-none' : 'opacity-100'}`}>
-                            {/* View Toggle */}
-                            <div className="flex bg-slate-100 p-1 rounded-lg">
-                                <button
-                                    onClick={() => setIsStudentMode(false)}
-                                    className={`flex-1 py-1.5 text-xs font-medium rounded-md transition-all ${!isStudentMode ? 'bg-white shadow text-slate-800' : 'text-slate-500'}`}
-                                >
-                                    Lærer
-                                </button>
-                                <button
-                                    onClick={() => setIsStudentMode(true)}
-                                    className={`flex-1 py-1.5 text-xs font-medium rounded-md transition-all ${isStudentMode ? 'bg-indigo-600 shadow text-white' : 'text-slate-500'}`}
-                                >
-                                    Elevvisning
-                                </button>
-                            </div>
 
-                            {/* 0. Random Picker (Quick Action) */}
-                            <div className="p-3 bg-indigo-50 border border-indigo-100 rounded-xl">
-                                <button
-                                    onClick={() => setShowPicker(true)}
-                                    className="w-full py-2 bg-white text-indigo-700 font-bold text-sm rounded-lg shadow-sm hover:shadow border border-indigo-200 flex items-center justify-center gap-2 transition-all"
-                                >
-                                    <Icon name="shuffle" size={16} />
-                                    Trekk tilfeldig elev
-                                </button>
-                            </div>
+
                             {/* 1. Main Actions (Generation) - Only visible in Seating Mode */}
                             {activeTool === 'seating' && (
                                 <div className="space-y-4">
@@ -262,19 +218,7 @@
                 {/* Main Preview Area */}
                 <div className={`flex-1 bg-slate-50 relative overflow-hidden flex flex-col items-center justify-center p-8 print:p-0 print:bg-white print:block print:overflow-visible transition-colors duration-500 ${isStudentMode ? 'bg-slate-900' : ''}`}>
 
-                    {/* Student View Exit Button */}
                     {/* Student View Controls (Minimal) - Hidden on Print */}
-                    {isStudentMode && (
-                        <div className="absolute top-6 left-6 z-50 print:hidden">
-                            <button
-                                onClick={() => setShowPicker(true)}
-                                className="bg-indigo-600 text-white px-6 py-3 rounded-full shadow-lg font-bold flex items-center gap-2 hover:bg-indigo-700 transition-all animate-in fade-in slide-in-from-top-4"
-                            >
-                                <Icon name="shuffle" size={20} />
-                                Trekk tilfeldig elev
-                            </button>
-                        </div>
-                    )}
 
                     {/* Print Header */}
                     <div className="hidden print:block w-full mb-6 border-b pb-4">
@@ -309,82 +253,6 @@
                         />
                     </div>
                 </div>
-
-
-                {/* Random Picker Modal */}
-                {
-                    showPicker && (
-                        <div className="fixed inset-0 z-[100] bg-slate-900/40 backdrop-blur-sm flex items-center justify-center p-4" onClick={() => setShowPicker(false)}>
-                            <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden transform transition-all scale-100" onClick={e => e.stopPropagation()}>
-                                <div className="p-4 border-b flex justify-between items-center bg-slate-50">
-                                    <h3 className="font-bold text-slate-700 flex items-center gap-2">
-                                        <Icon name="shuffle" size={18} className="text-indigo-600" />
-                                        Trekk elev
-                                    </h3>
-                                    <button onClick={() => setShowPicker(false)} className="p-1 hover:bg-slate-200 rounded-full"><Icon name="x" size={20} /></button>
-                                </div>
-
-                                <div className="p-6 text-center">
-                                    {pickedStudent ? (
-                                        <div className="animate-in zoom-in duration-300">
-                                            <p className="text-sm text-slate-400 uppercase font-bold tracking-wider mb-2">Resultat</p>
-                                            <div className="text-4xl font-black text-slate-800 mb-6 bg-slate-50 py-8 rounded-2xl border border-slate-100 shadow-inner">
-                                                {pickedStudent.name}
-                                            </div>
-                                            <button
-                                                onClick={() => setPickedStudent(null)}
-                                                className="text-indigo-600 hover:underline text-sm font-medium"
-                                            >
-                                                Trekk en til
-                                            </button>
-                                        </div>
-                                    ) : (
-                                        <div className="space-y-6">
-                                            <div className="flex bg-slate-100 p-1 rounded-lg">
-                                                <button
-                                                    onClick={() => setPickMode('random')}
-                                                    className={`flex-1 py-2 text-sm font-medium rounded-md transition-all ${pickMode === 'random' ? 'bg-white shadow text-indigo-600' : 'text-slate-500 hover:text-slate-700'}`}
-                                                >
-                                                    Helt tilfeldig
-                                                </button>
-                                                <button
-                                                    onClick={() => setPickMode('cycle')}
-                                                    className={`flex-1 py-2 text-sm font-medium rounded-md transition-all ${pickMode === 'cycle' ? 'bg-white shadow text-indigo-600' : 'text-slate-500 hover:text-slate-700'}`}
-                                                >
-                                                    Gjennomgang
-                                                    {(pickedHistory || []).length > 0 && <span className="ml-1 text-xs opacity-70">({(pickedHistory || []).length})</span>}
-                                                </button>
-                                            </div>
-
-                                            <div className="bg-slate-50 p-4 rounded-xl border border-slate-100 text-sm text-slate-600">
-                                                {pickMode === 'random'
-                                                    ? "Trekker en tilfeldig elev fra hele listen hver gang (samme elev kan trekkes flere ganger)."
-                                                    : `Trekker en elev som IKKE har blitt trukket ennå. (${students.length - (pickedHistory || []).length} igjen).`
-                                                }
-                                            </div>
-
-                                            <button
-                                                onClick={handlePick}
-                                                className="w-full py-4 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl shadow-lg shadow-indigo-200 text-lg transition-all transform active:scale-95"
-                                            >
-                                                Trekk nå!
-                                            </button>
-
-                                            {pickMode === 'cycle' && (pickedHistory || []).length > 0 && (
-                                                <button
-                                                    onClick={onResetPickHistory}
-                                                    className="text-xs text-red-500 hover:text-red-700 hover:underline"
-                                                >
-                                                    Nullstill historikk ({pickedHistory.length} trukket)
-                                                </button>
-                                            )}
-                                        </div>
-                                    )}
-                                </div>
-                            </div>
-                        </div>
-                    )
-                }
             </div >
         );
     };

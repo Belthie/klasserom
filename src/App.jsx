@@ -582,6 +582,15 @@
                             <window.GroupGenerator students={students} title={activeClass.name} isStudentMode={isStudentMode} />
                         </div>
                     )}
+
+                    {activeTab === 'random' && (
+                        <window.RandomStudentTab
+                            students={students}
+                            pickedHistory={activeClass.pickedHistory || []}
+                            onPickStudent={handlePickStudent}
+                            onResetPickHistory={handleResetPickHistory}
+                        />
+                    )}
                 </main>
 
                 {/* Edit Student Modal (Re-used existing logic but isolated) */}
