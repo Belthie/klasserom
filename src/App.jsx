@@ -42,7 +42,7 @@
             return Object.keys(classrooms)[0];
         });
 
-        const [activeTab, setActiveTab] = React.useState('students'); // students | room | seating | groups
+        const [activeTab, setActiveTab] = React.useState('room'); // room | groups | random
         const [editingId, setEditingId] = React.useState(null); // For student edit modal
         const [showTutorial, setShowTutorial] = React.useState(false);
         const [isStudentMode, setIsStudentMode] = React.useState(false);
@@ -529,16 +529,6 @@
 
                 {/* Main Content Area */}
                 <main className="flex-1 relative overflow-hidden">
-                    {activeTab === 'students' && !isStudentMode && (
-                        <window.StudentsTab
-                            students={students}
-                            onImport={handleImportStudents}
-                            onUpdateStudent={handleUpdateStudent}
-                            onDeleteStudent={handleDeleteStudent}
-                            onClearRoster={handleClearRoster}
-                        />
-                    )}
-
                     {activeTab === 'room' && (
                         <window.RoomTab
                             // Configuration & Layout
@@ -551,6 +541,12 @@
                             students={students}
                             score={score}
                             customGroups={activeClass.customGroups}
+
+                            // Student Handlers
+                            onImportStudents={handleImportStudents}
+                            onUpdateStudent={handleUpdateStudent}
+                            onDeleteStudent={handleDeleteStudent}
+                            onClearRoster={handleClearRoster}
 
                             // Tools/Actions
                             onFurnitureClick={handleFurnitureClick}

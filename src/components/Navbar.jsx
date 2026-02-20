@@ -1,7 +1,6 @@
 (function () {
     window.Navbar = ({ activeTab, onTabChange, className, activeClass, classrooms, onChangeClass, onAddClass, onExport, onLoad, onReset, onDeleteClass, onRenameClass, onOpenTutorial, isStudentMode, onToggleStudentMode }) => {
         const tabs = [
-            { id: 'students', label: 'Elever', icon: 'users', hidden: isStudentMode },
             { id: 'room', label: 'Klasserom', icon: 'layout' },
             { id: 'groups', label: 'Tilfeldige Grupper', icon: 'shuffle' },
             { id: 'random', label: 'Trekk Elev', icon: 'user' },
